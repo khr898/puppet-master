@@ -51,3 +51,19 @@ often you hit your usage limit with a normal week, alongside the accept rate and
 
 Smoke-test the real model with `uv run pytest -m live`; it skips itself when llama-server is down.
 Local training samples (`.flint/samples/`) can be switched off with `[log] samples = false`.
+
+## Choosing the model (the bake-off)
+
+`flint-eval` scores whichever model llama-server is running on the bridge's own tasks (10 read
+questions about this repo, 5 small fix-the-failing-test write tasks in `evals/`), using the real
+read and write code, so verified claims and the staged-patch checks are part of the score.
+
+```bash
+UV_CACHE_DIR=.uv-cache uv run flint-eval --label flint-iq2xxs     # model set in ~/.flint/server.toml
+# change `model` in ~/.flint/server.toml, run flint_server("restart") from Claude, then:
+UV_CACHE_DIR=.uv-cache uv run flint-eval --label gemma4-12b-q4
+UV_CACHE_DIR=.uv-cache uv run flint-eval --compare flint-iq2xxs gemma4-12b-q4
+```
+
+Each run is saved to `evals/results/<label>.json`. Record the winner in
+[ADR 0001](docs/decisions/0001-local-model-choice.md).

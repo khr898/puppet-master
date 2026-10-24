@@ -1,0 +1,32 @@
+[
+  {
+    "id": "average-empty",
+    "fixture": "fix_average",
+    "task": "Make average() return 0.0 for an empty list instead of raising ZeroDivisionError.",
+    "files": ["stats_util.py"]
+  },
+  {
+    "id": "add-clamp",
+    "fixture": "add_clamp",
+    "task": "Add a function clamp(x, lo, hi) that limits x to the range lo..hi, and keep double() as it is.",
+    "files": ["mathutil.py"]
+  },
+  {
+    "id": "slugify-hyphens",
+    "fixture": "fix_slugify",
+    "task": "Make slugify() lowercase the text and join its words with single hyphens, ignoring extra spaces.",
+    "files": ["text.py"]
+  },
+  {
+    "id": "roman-numerals",
+    "fixture": "add_roman",
+    "task": "Implement to_roman(n) so it returns the Roman numeral for a whole number from 1 to 3999.",
+    "files": ["roman.py"]
+  },
+  {
+    "id": "dedupe-order",
+    "fixture": "fix_dedupe",
+    "task": "Make dedupe() remove duplicates but keep the first occurrence of each item in its original order.",
+    "files": ["lists.py"]
+  }
+]

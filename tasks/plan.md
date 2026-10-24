@@ -83,7 +83,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 - [x] T11: `flint_ask` and the `flint-stats` CLI
 - [x] T11b: Sample capture (keeps fine-tuning possible) and the reasoning reserve
 - [x] T12: Final tool descriptions, this project's `CLAUDE.md`, live smoke tests
-- [ ] T13: `flint-eval` bake-off harness (Flint UD-IQ2_XXS vs Gemma 4 12B Q4; ADR 0001)
+- [x] T13: `flint-eval` bake-off harness (Flint UD-IQ2_XXS vs Gemma 4 12B Q4; ADR 0001)
 
 ### Checkpoint D: spec success criteria 1–5 met → start the one-week trial
 

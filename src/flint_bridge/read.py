@@ -1,4 +1,5 @@
 import json
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -134,6 +135,7 @@ class Usage:
     tokens_out: int = 0
     retries: int = 0
     reasoning_tokens: int = 0
+    model_seconds: float = 0.0
     # (system, user, raw output) of every model call, for sample capture
     calls: list[tuple[str, str, str]] = field(default_factory=list)
 
@@ -152,7 +154,9 @@ async def _complete_json(
         if attempt:
             usage.retries += 1
         prompt = f"{user}\n\n{RETRY_NOTE}" if attempt else user
+        started = time.perf_counter()
         reply = await complete(cfg, system, prompt, max_tokens=max_tokens, schema=schema)
+        usage.model_seconds += time.perf_counter() - started
         usage.tokens_in += reply.tokens_in
         usage.tokens_out += reply.tokens_out
         usage.reasoning_tokens += reply.reasoning_tokens
