@@ -66,7 +66,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 
 ### Phase 2: Verified reads (highest-risk guardrail)
 - [x] T4: Line numbering and claim verification, with adversarial fixtures
-- [ ] T5: `flint_read` single chunk, with budget preflight and line ranges
+- [x] T5: `flint_read` single chunk, with budget preflight and line ranges
 - [ ] T6: Multi-chunk map-reduce
 
 ### Checkpoint B: reads are safe

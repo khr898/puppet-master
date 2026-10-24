@@ -274,7 +274,7 @@ async def test_tool_description_states_the_contract():
 @respx.mock
 async def test_an_oversized_question_is_over_budget_without_a_call(shapes):
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    out = await flint_read_impl(CFG, [str(shapes)], "why " * 12000)
+    out = await flint_read_impl(CFG, [str(shapes)], "why " * 16000)
     assert out["error"] == "over_budget"
     assert out["limit"] == CFG.ctx - 512 - 1500
     assert route.call_count == 0
