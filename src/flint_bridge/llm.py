@@ -1,6 +1,6 @@
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 
@@ -20,6 +20,7 @@ class Completion:
     tokens_in: int
     tokens_out: int
     reasoning_tokens: int = 0
+    raw: str = field(default="", compare=False, repr=False)  # the reply as sent, thinking included
 
 
 def _strip_think(content: str) -> tuple[str, str]:
@@ -60,6 +61,9 @@ async def complete(
         tokens_in=usage.get("prompt_tokens") or est_tokens(system + user),
         tokens_out=usage.get("completion_tokens") or est_tokens(content),
         reasoning_tokens=reasoning,
+        raw=f"<think>{message['reasoning_content']}</think>{content}"
+        if message.get("reasoning_content")
+        else content,
     )
 
 

@@ -44,7 +44,7 @@ async def test_prompt_without_context_is_sent_as_is():
 async def test_too_large_a_prompt_is_over_budget_without_calling_flint():
     health = respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(200))
     llm = respx.post(URL).mock(return_value=llm_reply("never"))
-    out = await server.flint_ask("x" * 60_000)
+    out = await server.flint_ask("x" * 64_000)
     assert out["error"] == "over_budget"
     assert not llm.called
     assert not health.called

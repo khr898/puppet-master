@@ -19,11 +19,18 @@ def parse_since(since: str) -> timedelta:
 
 def load_rows(path: Path, since: str | None = None) -> list[dict]:
     """Read the call log, optionally keeping only rows newer than `since` (7d, 24h)."""
-    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    if since is None:
-        return rows
-    cutoff = datetime.now(UTC) - parse_since(since)
-    return [r for r in rows if datetime.fromisoformat(r["ts"]) >= cutoff]
+    cutoff = None if since is None else datetime.now(UTC) - parse_since(since)
+    rows = []
+    for line in path.read_text().splitlines():
+        try:
+            row = json.loads(line)
+            when = datetime.fromisoformat(row["ts"])
+            row["tool"]
+        except (ValueError, KeyError, TypeError):
+            continue  # a truncated or hand-edited line must not hide the rest of the log
+        if cutoff is None or when >= cutoff:
+            rows.append(row)
+    return rows
 
 
 def _avg(values: list[float]) -> float | None:

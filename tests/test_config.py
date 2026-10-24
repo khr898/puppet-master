@@ -81,3 +81,19 @@ def test_parses_samples_and_reasoning_reserve(tmp_path: Path):
     assert cfg.samples is False
     assert cfg.reasoning_reserve == 3000
     assert cfg.effective_chunk_tokens == 7000
+
+
+@pytest.mark.parametrize(
+    "toml",
+    [
+        '[log]\nsamples = "false"\n',
+        '[budget]\nreasoning_reserve = "3000"\n',
+        "log = 5\n",
+        "[budget]\nreasoning_reserve = 10000\n",
+        "[budget]\nreasoning_reserve = -1\n",
+    ],
+)
+def test_bad_samples_or_reserve_is_rejected(tmp_path: Path, toml: str):
+    (tmp_path / "flint.toml").write_text(toml)
+    with pytest.raises(ValueError):
+        load_config(tmp_path)

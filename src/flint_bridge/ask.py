@@ -6,7 +6,7 @@ from flint_bridge.llm import complete
 from flint_bridge.read import Usage
 from flint_bridge.report import est_tokens
 
-ASK_MAX_TOKENS = 1500
+ASK_MAX_TOKENS = 450  # a draft longer than this would be cut by the 500-token report cap
 
 SYSTEM_ASK = "Write the requested draft. Be concise."
 

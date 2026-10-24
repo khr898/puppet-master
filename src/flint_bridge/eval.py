@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -22,7 +23,8 @@ Ready = Callable[[], Awaitable[dict | None]] | None
 
 def answer_correct(answer: str, must_mention: list[str]) -> bool:
     """True if the answer contains every keyword, ignoring case."""
-    return all(k.lower() in answer.lower() for k in must_mention)
+    # Whole-word match, so a keyword like "2" doesn't match the "2" inside "12".
+    return all(re.search(rf"(?<!\w){re.escape(k)}(?!\w)", answer, re.I) for k in must_mention)
 
 
 def _avg(values: list[float]) -> float | None:
@@ -111,7 +113,7 @@ class RssPeak:
 
     async def run(self) -> None:
         while True:
-            self.sample()
+            await asyncio.to_thread(self.sample)
             await asyncio.sleep(self.interval)
 
 
@@ -138,6 +140,8 @@ def summarize(reads: list[dict], writes: list[dict], peak_gb: float | None) -> d
             "avg_reasoning_tokens": _avg([r["reasoning_tokens"] for r in everything]),
         },
         "memory": {"peak_rss_gb": peak_gb},
+        # Tasks that failed for a reason other than the model's answer (server down, over budget).
+        "run": {"errors": sum(r["error"] not in (None, "unverifiable_output") for r in everything)},
     }
 
 
@@ -159,6 +163,7 @@ async def run_eval(
         writes = [await run_write_task(cfg, t, evals_dir.resolve(), ready) for t in write_tasks]
     finally:
         poller.cancel()
+        await asyncio.gather(poller, return_exceptions=True)
     return {"summary": summarize(reads, writes, rss.peak), "reads": reads, "writes": writes}
 
 
@@ -173,6 +178,7 @@ ROWS = [
     ("speed: tok/s", "speed", "tok_per_s", "{:.1f}"),
     ("speed: avg reasoning tokens", "speed", "avg_reasoning_tokens", "{:.0f}"),
     ("memory: peak RSS (GB)", "memory", "peak_rss_gb", "{:.2f}"),
+    ("run: tasks with errors", "run", "errors", "{:d}"),
 ]
 
 
@@ -234,6 +240,10 @@ async def amain(argv: list[str] | None = None) -> int:
     results_dir.mkdir(parents=True, exist_ok=True)
     (results_dir / f"{args.label}.json").write_text(json.dumps(result, indent=2))
     print(render_table({args.label: result}))
+    if errors := result["summary"]["run"]["errors"]:
+        print(
+            f"\nWARNING: {errors} task(s) errored (server down or over budget), not wrong answers."
+        )
     print(f"\n{round(time.perf_counter() - started)}s; saved to {results_dir / args.label}.json")
     return 0
 

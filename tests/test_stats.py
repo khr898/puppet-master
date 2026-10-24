@@ -78,3 +78,11 @@ def test_main_prints_the_summary(log_path, capsys):
 def test_main_with_a_missing_log_says_so(tmp_path, capsys):
     assert stats.main(["--log", str(tmp_path / "nope.jsonl")]) == 1
     assert "no log" in capsys.readouterr().out.lower()
+
+
+def test_a_damaged_log_line_is_skipped(tmp_path):
+    path = tmp_path / "log.jsonl"
+    good = json.dumps(row("flint_read", "ok"))
+    path.write_text(f'{good}\n{{"ts": "2026-\n{json.dumps({"tool": "x"})}\n[1]\n{good}\n')
+    assert len(stats.load_rows(path)) == 2
+    assert len(stats.load_rows(path, since="7d")) == 2

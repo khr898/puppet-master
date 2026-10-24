@@ -187,3 +187,23 @@ async def test_reasoning_tokens_are_logged_and_summarized(git_repo, source):
     rows = stats.load_rows(git_repo / ".flint" / "log.jsonl")
     assert rows[0]["reasoning_tokens"] == 40
     assert stats.summarize(rows)["avg_reasoning_tokens"] == {"flint_read": 40}
+
+
+async def test_samples_keep_the_thinking_in_raw_output(git_repo, source):
+    body = {
+        "choices": [
+            {"message": {"content": '{"answer": "a", "claims": []}', "reasoning_content": "hmm"}}
+        ],
+        "usage": {},
+    }
+    respx.post(URL).mock(return_value=httpx.Response(200, json=body))
+    await server.flint_read([str(source)], "q")
+    assert sample_rows(git_repo)[0]["raw_output"].startswith("<think>hmm</think>")
+
+
+async def test_a_bad_flint_toml_after_apply_does_not_hide_the_result(git_repo, source):
+    respx.post(URL).mock(return_value=reply(edit(source, GOOD)))
+    staged = await server.flint_write("grow", [str(source)])
+    (git_repo / "flint.toml").write_text("log = 5\n")
+    out = await server.flint_apply(str(git_repo), staged["patch_id"])
+    assert out["applied"] is True

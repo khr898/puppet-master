@@ -129,6 +129,11 @@ def test_answer_correct_needs_every_keyword_case_insensitively():
     assert not flint_eval.answer_correct("It uses ceil", ["ceil", "4"])
 
 
+def test_numeric_keywords_match_whole_numbers_only():
+    assert not flint_eval.answer_correct("after 3 attempts (limit 12)", ["2"])
+    assert flint_eval.answer_correct("it gives up after 2 failures", ["2"])
+
+
 async def test_perfect_answers_score_one_hundred_percent():
     respx.post(URL).mock(side_effect=model())
     res = await flint_eval.run_eval(Config(), EVALS, pid_fn=lambda: None)
@@ -220,3 +225,9 @@ async def test_compare_with_a_missing_label_says_so(tmp_path, capsys):
 def test_main_needs_a_label_or_compare():
     with pytest.raises(SystemExit):
         flint_eval.main([])
+
+
+async def test_a_dead_server_is_counted_as_errors_not_wrong_answers():
+    respx.post(URL).mock(side_effect=httpx.ConnectError("refused"))
+    res = await flint_eval.run_eval(Config(), EVALS, pid_fn=lambda: None)
+    assert res["summary"]["run"]["errors"] == 15

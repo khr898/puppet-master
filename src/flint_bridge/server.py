@@ -150,7 +150,7 @@ async def flint_status() -> dict:
         "pid": pid,
         "autostart": sc.autostart if sc else None,
         "budgets": {
-            "chunk_tokens": cfg.chunk_tokens,
+            "chunk_tokens": cfg.effective_chunk_tokens,
             "max_chunks": cfg.max_chunks,
             "write_max_tokens": cfg.write_max_tokens,
             "write_max_files": cfg.write_max_files,
@@ -279,8 +279,8 @@ def _staged_task_key(root: Path, patch_id: str) -> str | None:
 def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
     try:
         samples.record(root, load_config(root), tool=tool, verdict=verdict, patch_id=patch_id)
-    except OSError:
-        pass
+    except (OSError, ValueError):
+        pass  # the patch is already applied or rejected: a bad flint.toml must not hide that
 
 
 @mcp.tool(

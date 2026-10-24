@@ -160,7 +160,7 @@ async def _complete_json(
         usage.tokens_in += reply.tokens_in
         usage.tokens_out += reply.tokens_out
         usage.reasoning_tokens += reply.reasoning_tokens
-        usage.calls.append((system, prompt, reply.text))
+        usage.calls.append((system, prompt, reply.raw))
         try:
             data = json.loads(reply.text)
         except ValueError:

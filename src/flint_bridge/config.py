@@ -33,6 +33,12 @@ def _validate_commands(commands: dict) -> dict[str, list[str]]:
     return commands
 
 
+def _typed(value, kind: type, name: str):
+    if not isinstance(value, kind) or (kind is int and isinstance(value, bool)):
+        raise ValueError(f"{name} must be {kind.__name__}, got {value!r}")
+    return value
+
+
 def load_config(root: Path) -> Config:
     """Read root/flint.toml if present, else defaults. FLINT_BASE_URL overrides base_url."""
     cfg = Config()
@@ -49,13 +55,19 @@ def load_config(root: Path) -> Config:
                 for k in ("chunk_tokens", "timeout_s", "check_timeout_s", "reasoning_reserve")
                 if k in budget
             },
-            **({"samples": data["log"]["samples"]} if "samples" in data.get("log", {}) else {}),
         }
+        log = _typed(data.get("log", {}), dict, "[log]")
+        if "samples" in log:
+            updates["samples"] = _typed(log["samples"], bool, "[log] samples")
+        if "reasoning_reserve" in budget:
+            _typed(budget["reasoning_reserve"], int, "[budget] reasoning_reserve")
         if "default" in check:
             updates["check_default"] = check["default"]
         if "commands" in check:
             updates["check_commands"] = _validate_commands(check["commands"])
         cfg = replace(cfg, **updates)
+        if not 0 <= cfg.reasoning_reserve < cfg.chunk_tokens:
+            raise ValueError("[budget] reasoning_reserve must be at least 0 and below chunk_tokens")
     env_url = os.environ.get("FLINT_BASE_URL")
     if env_url:
         cfg = replace(cfg, base_url=env_url)
