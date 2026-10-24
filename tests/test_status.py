@@ -82,3 +82,8 @@ async def test_status_survives_unwritable_log(monkeypatch):
     monkeypatch.setattr(server, "log_call", boom)
     respx.get(f"{BASE}/health").mock(side_effect=httpx.ConnectError("refused"))
     assert (await server.flint_status())["up"] is False
+
+
+def test_instructions_tell_claude_to_stop_flint_before_heavy_builds():
+    assert "flint_server" in server.INSTRUCTIONS
+    assert "compil" in server.INSTRUCTIONS

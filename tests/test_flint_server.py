@@ -48,6 +48,7 @@ async def test_flint_server_tool_is_registered_with_directive_description():
     tools = {t.name: t for t in await server.mcp.list_tools()}
     desc = tools["flint_server"].description
     assert "Use stop when the user needs RAM back" in desc
+    assert "compiling" in desc
     assert "start" in json.dumps(tools["flint_server"].inputSchema)
 
 

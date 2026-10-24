@@ -24,6 +24,8 @@ This project uses the local `flint-engine` MCP server (Flint, a 16K-context mode
 - **Drafts:** treat `flint_ask` output as an unverified draft.
 - **Failures:** if a task fails twice, or the tool returns `flint_offline`, do the task yourself and tell the user.
 
+**Free the memory for heavy commands:** Flint holds about 12GB of this Mac's 18GB. Before compiling or running any other memory-heavy command (builds, large test runs, Docker), call `flint_server("stop")`. The next Flint tool call restarts it automatically.
+
 **Check commands for this project** (these must match `flint.toml`):
 - test: `uv run pytest -q -x`
 - lint: `uv run ruff check .`

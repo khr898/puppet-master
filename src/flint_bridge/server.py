@@ -23,7 +23,9 @@ INSTRUCTIONS = (
     "tokens per chunk, ≤8 chunks; writes ≤3 files, ≤6k tokens total. Pass specific files or "
     "path:start-end ranges. Checks are mandatory: act only on verified claims and read the "
     "cited lines before acting; read every staged patch before flint_apply; never apply Flint "
-    "changes any other way. If Flint is offline or fails twice, do it yourself and tell the user."
+    "changes any other way. Before compiling or any other memory-heavy command (builds, large "
+    'test runs, Docker), call flint_server("stop") to give Flint\'s ~12GB back; the next Flint '
+    "call restarts it. If Flint is offline or fails twice, do it yourself and tell the user."
 )
 
 idle = lifecycle.IdleWatcher()
@@ -119,7 +121,8 @@ async def flint_status() -> dict:
 @mcp.tool(
     description="Start/stop/restart the local Flint llama-server using the fixed settings in "
     "~/.flint/server.toml. Usually unnecessary: Flint tools autostart it, and it stops itself "
-    "after idle_stop_min to free memory. Use stop when the user needs RAM back."
+    "after idle_stop_min to free memory. Use stop when the user needs RAM back, and always "
+    "before compiling or other memory-heavy commands."
 )
 async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     started = time.perf_counter()
