@@ -65,7 +65,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 ### Checkpoint A: the bridge is reachable from Claude Desktop (passed 2026-10-24)
 
 ### Phase 2: Verified reads (highest-risk guardrail)
-- [ ] T4: Line numbering and claim verification, with adversarial fixtures
+- [x] T4: Line numbering and claim verification, with adversarial fixtures
 - [ ] T5: `flint_read` single chunk, with budget preflight and line ranges
 - [ ] T6: Multi-chunk map-reduce
 

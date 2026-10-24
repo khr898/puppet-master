@@ -47,7 +47,7 @@ def describe(shape):
 '''
 
 LINES = SOURCE.splitlines()
-FILES = {PATH: LINES}
+FILES = {PATH: (1, LINES)}  # file -> (first line number, lines)
 
 
 def _claim(**over):

@@ -27,26 +27,33 @@ def test_norm_collapses_all_whitespace():
 
 def test_verify_claim_exact_match():
     c = Claim("t", "f", 2, "beta")
-    assert verify_claim(c, {"f": ["alpha", "beta", "gamma"]})
+    assert verify_claim(c, {"f": (1, ["alpha", "beta", "gamma"])})
 
 
 def test_verify_claim_unknown_file_is_false():
-    assert not verify_claim(Claim("t", "nope", 1, "a"), {"f": ["a"]})
+    assert not verify_claim(Claim("t", "nope", 1, "a"), {"f": (1, ["a"])})
 
 
 @pytest.mark.parametrize("line", [0, -3, 4])
 def test_verify_claim_line_out_of_range_is_false(line):
-    assert not verify_claim(Claim("t", "f", line, "a"), {"f": ["a", "b", "c"]})
+    assert not verify_claim(Claim("t", "f", line, "a"), {"f": (1, ["a", "b", "c"])})
 
 
 def test_verify_claim_empty_quote_is_false():
-    assert not verify_claim(Claim("t", "f", 1, "  "), {"f": ["a"]})
+    assert not verify_claim(Claim("t", "f", 1, "  "), {"f": (1, ["a"])})
 
 
 def test_verify_claim_window_is_two_lines_each_way():
     lines = ["x"] * 4 + ["needle"] + ["x"] * 4  # needle on line 5
-    assert verify_claim(Claim("t", "f", 7, "needle"), {"f": lines})
-    assert not verify_claim(Claim("t", "f", 8, "needle"), {"f": lines})
+    assert verify_claim(Claim("t", "f", 7, "needle"), {"f": (1, lines)})
+    assert not verify_claim(Claim("t", "f", 8, "needle"), {"f": (1, lines)})
+
+
+def test_verify_claim_uses_original_line_numbers_of_a_slice():
+    files = {"f": (10, ["ten", "eleven", "twelve"])}
+    assert verify_claim(Claim("t", "f", 11, "eleven"), files)
+    assert not verify_claim(Claim("t", "f", 2, "eleven"), files)  # slice starts at line 10
+    assert not verify_claim(Claim("t", "f", 13, "ten"), files)  # past the end of the slice
 
 
 def test_parse_claims_keeps_valid_and_counts_malformed():
@@ -67,7 +74,7 @@ def test_parse_claims_keeps_valid_and_counts_malformed():
 
 
 def test_filter_claims_counts_unverified_as_stripped():
-    files = {"f": ["a", "b"]}
+    files = {"f": (1, ["a", "b"])}
     claims = [Claim("ok", "f", 1, "a"), Claim("bad", "f", 1, "zzz")]
     kept, stripped = filter_claims(claims, files)
     assert kept == [claims[0]]

@@ -2,12 +2,14 @@ import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import lifecycle, llm
+from flint_bridge import gitops, lifecycle, llm, read
+from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
 from flint_bridge.report import cap, est_tokens
@@ -73,19 +75,37 @@ async def ensure_up(cfg: Config) -> dict | None:
     return result if "error" in result else None
 
 
-def _report(tool: str, result: dict, started: float, root: Path | None = None) -> dict:
+_OUTCOME_BY_ERROR = {"flint_offline": "offline", "over_budget": "over_budget"}
+
+
+def _report(tool: str, result: dict, started: float, root: Path | None = None, **fields) -> dict:
     result = cap(result)
+    outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
     try:
         log_call(
             root,
             tool=tool,
             duration_ms=round((time.perf_counter() - started) * 1000),
             report_tokens=est_tokens(json.dumps(result)),
-            outcome="error" if "error" in result else "ok",
+            outcome=outcome,
+            **fields,
         )
     except OSError:
         pass  # a log that can't be written must never break a tool
     return result
+
+
+def _root_of(paths: list[str]) -> Path | None:
+    """Project root for config and logs: git toplevel of the first path, else its folder."""
+    if not paths:
+        return None
+    path = parse_path(paths[0])[0]
+    if not path.is_absolute():
+        return None
+    folder = path if path.is_dir() else path.parent
+    while not folder.exists() and folder != folder.parent:
+        folder = folder.parent  # a glob or missing file: use the nearest folder that exists
+    return gitops.toplevel(folder) or folder
 
 
 @mcp.tool(
@@ -150,6 +170,36 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
         "mem_free_pct": None if mem is None else 100 - mem,
     }
     return _report("flint_server", result, started)
+
+
+@mcp.tool(
+    description="USE THIS FIRST to read, search or summarize files/logs instead of opening them "
+    "yourself. Returns a short answer whose claims are mechanically verified against the source "
+    "(unverified claims are removed). Before acting on a claim, read its cited lines yourself. "
+    "Limits: ≤10k tokens of file per chunk, ≤8 chunks; pass specific files or path:start-end "
+    "ranges, never directories. Not for drafting prose (use flint_ask)."
+)
+async def flint_read(paths: list[str], question: str) -> dict:
+    started = time.perf_counter()
+    root = _root_of(paths)
+    cfg = load_config(root or Path.cwd())
+    usage = read.Usage()
+    try:
+        result = await read.flint_read_impl(
+            cfg, paths, question, usage=usage, ready=partial(ensure_up, cfg)
+        )
+    except llm.FlintOffline:
+        result = {"error": "flint_offline"}
+    return _report(
+        "flint_read",
+        result,
+        started,
+        root,
+        stripped=result.get("stripped"),
+        flint_tokens_in=usage.tokens_in,
+        flint_tokens_out=usage.tokens_out,
+        retries=usage.retries,
+    )
 
 
 def main() -> None:
