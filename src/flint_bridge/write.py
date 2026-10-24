@@ -175,6 +175,7 @@ async def flint_write_impl(
     patch_path = staging.patch_file(root, patch_id)
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     patch_path.write_bytes(patch_bytes)
+    sha256 = hashlib.sha256(patch_bytes).hexdigest()
     staging.meta_file(root, patch_id).write_text(
         json.dumps(
             {
@@ -182,7 +183,8 @@ async def flint_write_impl(
                 "task_key": key,
                 "root": str(root),
                 "files": staged["files"],
-                "sha256": hashlib.sha256(patch_bytes).hexdigest(),
+                "sha256": sha256,
+                "sig": staging.sign(patch_id, sha256, check["passed"]),
                 "check": check,
                 "created": datetime.now(UTC).isoformat(),
                 "applied": False,
@@ -221,6 +223,8 @@ def flint_apply_impl(root: Path, patch_id: str) -> dict:
         return err
     if meta.get("applied"):
         return {"error": "already_applied"}
+    if not staging.signature_ok(meta, patch_id):
+        return {"error": "metadata_modified"}
     if not (meta.get("check") or {}).get("passed"):
         return {"error": "check_failed"}
     try:

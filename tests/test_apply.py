@@ -82,6 +82,30 @@ async def test_a_patch_edited_after_its_check_is_refused(git_repo):
     assert not meta(git_repo, staged["patch_id"])["applied"]
 
 
+async def test_flipping_check_passed_in_the_metadata_does_not_unlock_apply(git_repo):
+    staged = await stage(git_repo, BAD)
+    path = git_repo / ".flint" / "staging" / f"{staged['patch_id']}.json"
+    data = json.loads(path.read_text())
+    data["check"]["passed"] = True
+    path.write_text(json.dumps(data))
+    before = status(git_repo)
+    assert flint_apply_impl(git_repo, staged["patch_id"]) == {"error": "metadata_modified"}
+    assert status(git_repo) == before
+
+
+async def test_a_swapped_hash_in_the_metadata_is_refused(git_repo):
+    staged = await stage(git_repo, GOOD)
+    patch = Path(staged["patch_path"])
+    patch.write_text(patch.read_text().replace("a - b", "a * b"))
+    import hashlib
+
+    path = patch.with_suffix(".json")
+    data = json.loads(path.read_text())
+    data["sha256"] = hashlib.sha256(patch.read_bytes()).hexdigest()
+    path.write_text(json.dumps(data))
+    assert flint_apply_impl(git_repo, staged["patch_id"]) == {"error": "metadata_modified"}
+
+
 async def test_a_missing_patch_file_is_refused(git_repo):
     staged = await stage(git_repo, GOOD)
     Path(staged["patch_path"]).unlink()

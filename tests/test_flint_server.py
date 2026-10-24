@@ -26,7 +26,10 @@ def env(tmp_path, monkeypatch) -> Path:
 def running_config(env, tmp_path, monkeypatch) -> ServerConfig:
     """A server.toml pointing at the fake server, and FLINT_BASE_URL to match."""
     with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
+        try:
+            s.bind(("127.0.0.1", 0))
+        except PermissionError:
+            pytest.skip("local port binding is blocked (sandbox)")
         port = s.getsockname()[1]
     model = tmp_path / "flint-test.gguf"
     model.write_bytes(b"x")

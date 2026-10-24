@@ -1,6 +1,8 @@
+import hmac
 import json
 import os
 import re
+import secrets
 from pathlib import Path
 
 from flint_bridge.check import run_check
@@ -64,3 +66,29 @@ def save_meta(root: Path, patch_id: str, meta: dict) -> None:
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(meta))
     os.replace(tmp, path)
+
+
+def _key() -> bytes:
+    """Per-machine signing key in ~/.flint, outside every project the bridge works on."""
+    path = Path.home() / ".flint" / "meta.key"
+    try:
+        return path.read_bytes()
+    except OSError:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        key = secrets.token_bytes(32)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
+        return key
+
+
+def sign(patch_id: str, sha256: str, passed: bool) -> str:
+    """Signature binding a patch's hash to the result of its check."""
+    msg = f"{patch_id}:{sha256}:{bool(passed)}".encode()
+    return hmac.new(_key(), msg, "sha256").hexdigest()
+
+
+def signature_ok(meta: dict, patch_id: str) -> bool:
+    passed = (meta.get("check") or {}).get("passed")
+    expected = sign(patch_id, str(meta.get("sha256")), bool(passed))
+    return isinstance(meta.get("sig"), str) and hmac.compare_digest(meta["sig"], expected)

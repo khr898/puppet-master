@@ -30,3 +30,10 @@ def git_repo(tmp_path) -> Path:
     run_git(root, "add", "-A")
     run_git(root, "commit", "-q", "-m", "init")
     return root
+
+
+@pytest.fixture(autouse=True)
+def _home(tmp_path_factory, monkeypatch):
+    """Keep ~/.flint (signing key, server files) out of the real home directory."""
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))

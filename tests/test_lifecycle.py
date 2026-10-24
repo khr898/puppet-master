@@ -35,7 +35,10 @@ def home(tmp_path, monkeypatch) -> Path:
 @pytest.fixture
 def port() -> int:
     with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
+        try:
+            s.bind(("127.0.0.1", 0))
+        except PermissionError:
+            pytest.skip("local port binding is blocked (sandbox)")
         return s.getsockname()[1]
 
 
