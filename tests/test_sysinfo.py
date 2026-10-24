@@ -40,3 +40,37 @@ def test_available_gb_is_none_when_vm_stat_fails(monkeypatch):
 def test_lifecycle_free_gb_uses_available_memory(monkeypatch):
     monkeypatch.setattr(sysinfo, "available_gb", lambda: 7.5)
     assert lifecycle.free_gb() == 7.5
+
+
+MEMORY_PRESSURE = """The system has 19327352832 (1179648 pages with a page size of 16384).
+System-wide memory free percentage: 79%
+"""
+
+
+def test_parse_memory_pressure_gives_free_gb():
+    assert sysinfo.parse_memory_pressure(MEMORY_PRESSURE) == 19327352832 * 79 / 100 / 1e9
+
+
+def test_parse_memory_pressure_garbage_gives_none():
+    assert sysinfo.parse_memory_pressure("nope") is None
+
+
+def fake_run(monkeypatch, outputs: dict):
+    monkeypatch.setattr(sysinfo, "_run", lambda cmd: outputs.get(cmd[0]))
+
+
+def test_available_gb_takes_the_more_lenient_measurement(monkeypatch):
+    fake_run(monkeypatch, {"vm_stat": VM_STAT, "memory_pressure": MEMORY_PRESSURE})
+    assert sysinfo.available_gb() == sysinfo.parse_memory_pressure(MEMORY_PRESSURE)  # ~15.3 > 11.7
+    low = MEMORY_PRESSURE.replace("79%", "10%")
+    fake_run(monkeypatch, {"vm_stat": VM_STAT, "memory_pressure": low})
+    assert sysinfo.available_gb() == sysinfo.parse_vm_stat(VM_STAT)  # 11.7 > 1.9
+
+
+def test_available_gb_uses_whichever_measurement_works(monkeypatch):
+    fake_run(monkeypatch, {"vm_stat": VM_STAT})
+    assert sysinfo.available_gb() == sysinfo.parse_vm_stat(VM_STAT)
+    fake_run(monkeypatch, {"memory_pressure": MEMORY_PRESSURE})
+    assert sysinfo.available_gb() == sysinfo.parse_memory_pressure(MEMORY_PRESSURE)
+    fake_run(monkeypatch, {})
+    assert sysinfo.available_gb() is None

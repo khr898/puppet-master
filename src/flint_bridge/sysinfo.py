@@ -31,9 +31,34 @@ def parse_vm_stat(text: str) -> float | None:
     return sum(pages.values()) * page_size / 1e9
 
 
-def available_gb() -> float | None:
+def parse_memory_pressure(text: str) -> float | None:
+    """GB macOS itself calls free: `memory_pressure -Q` free% of total memory."""
     try:
-        out = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5, check=True)
+        total = int(re.search(r"The system has (\d+)", text).group(1))
+        pct = int(re.search(r"free percentage:\s*(\d+)%", text).group(1))
+    except (AttributeError, ValueError):
+        return None
+    return total * pct / 100 / 1e9
+
+
+def _run(cmd: list[str]) -> str | None:
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=True).stdout
     except (OSError, subprocess.SubprocessError):
         return None
-    return parse_vm_stat(out.stdout)
+
+
+def available_gb() -> float | None:
+    """Memory we can load a model into, in GB. None if neither measurement works.
+
+    Takes the more lenient of two views. memory_pressure counts app memory that macOS can
+    compress as free; vm_stat counts only free pages, file cache and purgeable pages. Using the
+    larger avoids refusing a start that macOS would handle, at the cost of possible
+    compression or swap when apps are using a lot of memory.
+    """
+    readings = [
+        parse_vm_stat(_run(["vm_stat"]) or ""),
+        parse_memory_pressure(_run(["memory_pressure", "-Q"]) or ""),
+    ]
+    known = [r for r in readings if r is not None]
+    return max(known) if known else None
