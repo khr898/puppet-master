@@ -12,7 +12,13 @@ import hallucinations as hx  # noqa: E402
 
 from flint_bridge import server  # noqa: E402
 from flint_bridge.config import Config  # noqa: E402
-from flint_bridge.read import SYSTEM_MERGE, Usage, chunk_files, flint_read_impl  # noqa: E402
+from flint_bridge.read import (  # noqa: E402
+    SYSTEM_MERGE,
+    Usage,
+    chunk_files,
+    flint_read_impl,
+    number_lines,
+)
 from flint_bridge.report import est_tokens  # noqa: E402
 
 CFG = Config()
@@ -533,3 +539,72 @@ async def test_merge_prompt_too_large_for_the_window_is_over_budget(tmp_path):
     out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
     assert out["error"] == "over_budget"
     assert route.call_count == 2  # the merge call itself is never sent
+
+
+def _filler_module(path: Path, n: int = 60) -> None:
+    """A module of n unrelated functions, about 15 tokens each, plus one the question names."""
+    funcs = [f"def helper_{i}(value):\n    return value * {i} + {i}\n" for i in range(n)]
+    funcs.insert(n // 2, "def retry_backoff(attempt):\n    return BACKOFF_BASE ** attempt\n")
+    path.write_text("BACKOFF_BASE = 2\n\n\n" + "\n\n".join(funcs))
+
+
+@respx.mock
+async def test_focus_shows_only_the_matching_blocks_and_their_definitions(tmp_path):
+    mod = tmp_path / "mod.py"
+    _filler_module(mod)
+    cfg = replace(CFG, chunk_tokens=300, focus_tokens=100)
+    lines = mod.read_text().splitlines()
+    line = lines.index("    return BACKOFF_BASE ** attempt") + 1
+    claim = {"text": "t", "file": str(mod), "line": line, "quote": "BACKOFF_BASE ** attempt"}
+    route = respx.post(URL).mock(return_value=llm_reply(answer([claim])))
+
+    out = await flint_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
+
+    msg = sent_user_message(route)
+    assert route.call_count == 1  # one focused chunk, no map-reduce
+    assert "def retry_backoff(attempt):" in msg
+    assert "BACKOFF_BASE = 2" in msg  # the constant it uses came along
+    assert "helper_5" not in msg
+    assert "(lines not shown)" in msg
+    assert out["claims"] == [{"text": "t", "file": str(mod), "line": line}]
+    assert out["focus"]["blocks"] < out["focus"]["of_blocks"]
+    assert out["focus"]["shown_tokens"] < out["focus"]["total_tokens"]
+
+
+@respx.mock
+async def test_focus_strips_a_claim_on_a_line_flint_was_not_shown(tmp_path):
+    mod = tmp_path / "mod.py"
+    _filler_module(mod)
+    cfg = replace(CFG, chunk_tokens=300, focus_tokens=100)
+    hidden = mod.read_text().splitlines().index("def helper_5(value):") + 1
+    claim = {"text": "t", "file": str(mod), "line": hidden, "quote": "def helper_5(value):"}
+    respx.post(URL).mock(return_value=llm_reply(answer([claim])))
+    out = await flint_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
+    assert out["claims"] == [] and out["stripped"] == 1
+
+
+@respx.mock
+async def test_focus_lifts_the_chunk_limit_but_exhaustive_keeps_it(tmp_path):
+    mod = tmp_path / "mod.py"
+    _filler_module(mod, n=400)
+    cfg = replace(CFG, chunk_tokens=300, max_chunks=2, focus_tokens=60)
+    respx.post(URL).mock(return_value=llm_reply(answer([])))
+    assert (await flint_read_impl(cfg, [str(mod)], "retry_backoff"))["error"] == "over_budget"
+    assert "focus" in await flint_read_impl(cfg, [str(mod)], "retry_backoff", focus=True)
+
+
+@respx.mock
+async def test_focus_with_no_matching_term_falls_back_to_the_normal_limits(tmp_path):
+    mod = tmp_path / "mod.py"
+    _filler_module(mod, n=400)
+    cfg = replace(CFG, chunk_tokens=300, max_chunks=2, focus_tokens=60)
+    route = respx.post(URL).mock(return_value=llm_reply(answer([])))
+    out = await flint_read_impl(cfg, [str(mod)], "zzz qqq", focus=True)
+    assert out["error"] == "over_budget" and route.call_count == 0
+
+
+def test_number_lines_marks_each_gap_once():
+    assert (
+        number_lines(["a", None, None, "d"], start=3)
+        == "    3| a\n  ...| (lines not shown)\n    6| d"
+    )

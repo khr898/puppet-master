@@ -22,9 +22,12 @@ INSTRUCTIONS = (
     "refactors, drafts. Keep: planning, architecture, subtle bugs, security-sensitive code, "
     "final review, anything under ~200 output tokens. When you skip Flint, say why in one line. "
     "Size every request to Flint's budget (call flint_status once per session): reads ≤10k "
-    "tokens per chunk, ≤8 chunks; writes ≤3 files, ≤6k tokens total. Pass specific files or "
-    "path:start-end ranges. Checks are mandatory: act only on verified claims and read the "
-    "cited lines before acting; read every staged patch before flint_apply; never apply Flint "
+    "tokens per chunk, ≤8 chunks; writes ≤3 files, ≤6k tokens total. Pass files, "
+    "path:start-end ranges or globs, never directories: a read over one chunk is searched "
+    "(BM25) down to the blocks that match the question, so use it to find code instead of "
+    "grepping, and a big file is written by region. Checks are mandatory: act only on "
+    "verified claims and read the cited lines before acting; read every staged patch before "
+    "flint_apply; never apply Flint "
     "changes any other way. Before compiling or any other memory-heavy command (builds, large "
     'test runs, Docker), call flint_server("stop") to give Flint\'s ~12GB back; the next Flint '
     "call restarts it. If Flint is offline or fails twice, do it yourself and tell the user."
@@ -198,17 +201,20 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     description="USE THIS FIRST to read, search or summarize files/logs instead of opening them "
     "yourself. Returns a short answer whose claims are mechanically verified against the source "
     "(unverified claims are removed). Before acting on a claim, read its cited lines yourself. "
-    "Limits: ≤10k tokens of file per chunk, ≤8 chunks; pass specific files or path:start-end "
-    "ranges, never directories. Not for drafting prose (use flint_ask)."
+    "Pass files, path:start-end ranges or globs (e.g. /repo/src/**/*.py), never directories. "
+    "Anything over one chunk is searched: Flint sees only the blocks that best match the "
+    "question, and `focus` in the report says how much it saw. Use it to find code instead of "
+    "grepping. exhaustive=true reads everything instead: ≤10k tokens of file per chunk, ≤8 "
+    "chunks. Not for drafting prose (use flint_ask)."
 )
-async def flint_read(paths: list[str], question: str) -> dict:
+async def flint_read(paths: list[str], question: str, exhaustive: bool = False) -> dict:
     started = time.perf_counter()
     root = _root_of(paths)
     cfg = load_config(root or Path.cwd())
     usage = read.Usage()
     try:
         result = await read.flint_read_impl(
-            cfg, paths, question, usage=usage, ready=partial(ensure_up, cfg)
+            cfg, paths, question, usage=usage, ready=partial(ensure_up, cfg), focus=not exhaustive
         )
     except llm.FlintOffline:
         result = {"error": "flint_offline"}
@@ -234,8 +240,10 @@ async def flint_read(paths: list[str], question: str) -> dict:
     description="USE THIS for boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
     "refactors. Flint writes a STAGED patch (your working tree is untouched) and tests run on it "
     "automatically. You MUST read the patch at patch_path before calling flint_apply. To retry, "
-    "call again with the same task and your feedback in constraints (max 2 attempts). Limits: "
-    "≤3 files, ≤6k tokens total; larger files stay with you."
+    "call again with the same task and your feedback in constraints (max 2 attempts). A file "
+    "over ~2k tokens is edited by region: Flint sees an outline and rewrites only the blocks "
+    "that match the task, so name the function or class to change. Limits: ≤3 files, ≤6k "
+    "tokens of editable text total."
 )
 async def flint_write(task: str, files: list[str], constraints: str = "") -> dict:
     started = time.perf_counter()

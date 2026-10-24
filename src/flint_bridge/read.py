@@ -7,8 +7,16 @@ from flint_bridge.budget import HEADROOM, PathError, expand, fits
 from flint_bridge.config import Config
 from flint_bridge.llm import complete
 from flint_bridge.report import est_tokens
+from flint_bridge.retrieve import READ_BLOCK_LINES, Block, rank, split_blocks, with_definitions
 
 READ_MAX_TOKENS = 1500
+# Most file text a focused read will load and rank (~2 MB).
+FOCUS_MAX_TOKENS = 500_000
+# A focused read drops blocks scoring under this share of the best one: weak matches only
+# distract Flint from the blocks that hold the answer.
+READ_MIN_SHARE = 0.2
+# Shown in place of each run of lines a focused read left out.
+GAP = "  ...| (lines not shown)"
 RETRY_NOTE = "Your last reply was not valid JSON. Reply with JSON only."
 
 SYSTEM_READ = (
@@ -54,7 +62,9 @@ MERGE_SCHEMA = {
     "required": ["answer", "claim_ids"],
 }
 
-Files = dict[str, tuple[int, list[str]]]
+# path -> (number of the first loaded line, loaded lines). A focused read leaves out lines it
+# did not pick; those are None and are never shown to Flint or accepted as a citation.
+Files = dict[str, tuple[int, list[str | None]]]
 
 
 @dataclass(frozen=True)
@@ -65,8 +75,15 @@ class Claim:
     quote: str
 
 
-def number_lines(lines: list[str], start: int = 1) -> str:
-    return "\n".join(f"{n:>5}| {line}" for n, line in enumerate(lines, start))
+def number_lines(lines: list[str | None], start: int = 1) -> str:
+    """Lines with their true numbers in the margin. A run of None lines becomes one gap marker."""
+    out = []
+    for n, line in enumerate(lines, start):
+        if line is not None:
+            out.append(f"{n:>5}| {line}")
+        elif n == start or lines[n - start - 1] is not None:
+            out.append(GAP)
+    return "\n".join(out)
 
 
 def _norm(s: str) -> str:
@@ -84,14 +101,14 @@ def verify_claim(claim: Claim, files: dict[str, tuple[int, list[str]]], window: 
         return False
     start, lines = loaded
     idx = claim.line - start
-    if not 0 <= idx < len(lines):
+    if not 0 <= idx < len(lines) or lines[idx] is None:
         return False
     quote = _norm(claim.quote)
     if not quote:
         return False
     lo = max(0, idx - window)
     hi = min(len(lines), idx + window + 1)
-    return quote in _norm(" ".join(lines[lo:hi]))
+    return quote in _norm(" ".join(x for x in lines[lo:hi] if x is not None))
 
 
 def _parse_claim(item: object) -> Claim | None:
@@ -250,6 +267,60 @@ def chunk_files(files: Files, chunk_tokens: int) -> list[Files]:
     return chunks
 
 
+def _trim(block: Block) -> Block | None:
+    """The block without its trailing blank lines, or None if it is all blank."""
+    lines = list(block.lines)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return Block(block.path, block.start, lines) if lines else None
+
+
+def focus_files(files: Files, question: str, chunk_tokens: int) -> tuple[Files, dict] | None:
+    """The blocks that best match the question (BM25), packed into one chunk.
+
+    The best few come with the blocks that define the names they use.
+
+    Returns (files holding only the picked lines, a coverage summary), or None when no block
+    shares a term with the question.
+    """
+    blocks = [
+        trimmed
+        for path, (first, lines) in files.items()
+        for b in split_blocks(path, first, lines, READ_BLOCK_LINES)
+        if (trimmed := _trim(b)) is not None
+    ]
+    limit = chunk_tokens * 4
+    used, picked, paths = 0, [], set()
+    ranked = rank(question, blocks)
+    floor = READ_MIN_SHARE * ranked[0][0] if ranked else 0
+    relevant = [b for score, b in ranked if score > 0 and score >= floor]
+    for block in with_definitions(relevant, blocks):
+        cost = sum(_line_chars(n, x) for n, x in enumerate(block.lines, block.start))
+        cost += len(GAP) + 1 + (0 if block.path in paths else len(f"=== FILE {block.path} ===\n"))
+        if used + cost > limit:
+            continue
+        used += cost
+        picked.append(block)
+        paths.add(block.path)
+    if not picked:
+        return None
+    out: Files = {}
+    for path in paths:
+        mine = [b for b in picked if b.path == path]
+        lo, hi = min(b.start for b in mine), max(b.end for b in mine)
+        lines: list[str | None] = [None] * (hi - lo + 1)
+        for b in mine:
+            lines[b.start - lo : b.end - lo + 1] = b.lines
+        out[path] = (lo, lines)
+    coverage = {
+        "blocks": len(picked),
+        "of_blocks": len(blocks),
+        "shown_tokens": est_tokens(_render(out)),
+        "total_tokens": est_tokens(_render(files)),
+    }
+    return out, coverage
+
+
 def _read_prompt(chunk: Files, question: str) -> str:
     return f"{_render(chunk)}\nQUESTION: {question}"
 
@@ -280,11 +351,14 @@ async def flint_read_impl(
     *,
     usage: Usage | None = None,
     ready: Callable[[], Awaitable[dict | None]] | None = None,
+    focus: bool = False,
 ) -> dict:
     """Read files through Flint and return only claims that were verified against the source.
 
     Files are split into chunks; each chunk is read on its own (map) and, when there is more
     than one, the verified claims are combined by a merge step that may only pick among them.
+    With `focus`, files that need more than one chunk are cut down instead to the blocks that
+    best match the question, in a single chunk, and the report says how much was shown.
 
     `ready` runs after every check that needs no model (so a bad request never starts Flint)
     and just before the first model call; an error dict it returns is handed straight back.
@@ -298,6 +372,16 @@ async def flint_read_impl(
         return {"error": "no_files"}
     chunks = chunk_files(files, cfg.effective_chunk_tokens)
     max_out = READ_MAX_TOKENS + cfg.reasoning_reserve
+    coverage = None
+    if focus and len(chunks) > 1:
+        total = est_tokens(_render(files))
+        if total > FOCUS_MAX_TOKENS:
+            return _over_budget(total, FOCUS_MAX_TOKENS)
+        budget = min(cfg.focus_tokens, cfg.effective_chunk_tokens)
+        focused = focus_files(files, question, budget)
+        if focused is not None:
+            files, coverage = focused
+            chunks = [files]
     if len(chunks) > cfg.max_chunks:
         return _over_budget(est_tokens(_render(files)), cfg.effective_chunk_tokens * cfg.max_chunks)
     prompts = []
@@ -350,6 +434,8 @@ async def flint_read_impl(
         "stripped": stripped,
         "chunks": len(chunks),
     }
+    if coverage is not None:
+        out["focus"] = coverage
     if stripped:
         out["answer_confidence"] = "degraded"
     return out

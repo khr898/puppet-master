@@ -18,6 +18,10 @@ class Config:
     check_commands: dict[str, list[str]] = field(default_factory=dict)
     samples: bool = True
     reasoning_reserve: int = 0
+    # File tokens a focused read shows Flint: the blocks that best match the question.
+    focus_tokens: int = 3000
+    # A file over this many tokens is edited by region: only the parts the task is about.
+    region_tokens: int = 2000
 
     @property
     def effective_chunk_tokens(self) -> int:
@@ -52,7 +56,14 @@ def load_config(root: Path) -> Config:
             **{k: server[k] for k in ("base_url", "ctx") if k in server},
             **{
                 k: budget[k]
-                for k in ("chunk_tokens", "timeout_s", "check_timeout_s", "reasoning_reserve")
+                for k in (
+                    "chunk_tokens",
+                    "timeout_s",
+                    "check_timeout_s",
+                    "reasoning_reserve",
+                    "focus_tokens",
+                    "region_tokens",
+                )
                 if k in budget
             },
         }

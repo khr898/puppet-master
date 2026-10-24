@@ -1,3 +1,5 @@
+import difflib
+import glob
 import json
 import re
 import shutil
@@ -53,12 +55,35 @@ def read_reply(user: str, *, bogus: int = 0) -> dict:
     return {"answer": " ".join(task["must_mention"]), "claims": claims}
 
 
+def _solution_span(old: list[str], new: list[str], a: int, z: int) -> list[str]:
+    """The lines of `new` that lines a..z (1-based) of `old` became."""
+    ops = difflib.SequenceMatcher(None, old, new, autojunk=False).get_opcodes()
+
+    def where(i: int) -> int:
+        for _, i1, i2, j1, j2 in ops:
+            if i1 <= i < i2 or (i == i2 == i1):
+                return j1 + min(i - i1, j2 - j1)
+        return len(new)
+
+    end = len(new) if z == len(old) else where(z)
+    return new[where(a - 1) : end]
+
+
 def write_reply(user: str) -> dict:
     task_text = user.rsplit("TASK: ", 1)[1].split("\nCONSTRAINTS:")[0]
     task = next(t for t in WRITE_TASKS if t["task"] == task_text)
     name = task["files"][0]
+    fixture = EVALS / "fixtures" / task["fixture"]
+    solution = (fixture / "solution" / name).read_text()
+    regions = re.findall(r"=== REGION (r\d+) \S+:(\d+)-(\d+) ===", user)
+    if regions:  # a big file, edited by region: hand back what each region became
+        old, new = (fixture / name).read_text().splitlines(), solution.splitlines()
+        edits = [
+            {"id": rid, "content": "\n".join(_solution_span(old, new, int(a), int(z)))}
+            for rid, a, z in regions
+        ]
+        return {"regions": edits, "notes": "fixed"}
     path = re.search(r"=== FILE (.*) ===", user).group(1)
-    solution = (EVALS / "fixtures" / task["fixture"] / "solution" / name).read_text()
     return {"files": [{"path": path, "content": solution}], "notes": "fixed"}
 
 
@@ -89,15 +114,17 @@ def flint_up(monkeypatch):
 # --- the task set itself -------------------------------------------------------------------
 
 
-def test_the_task_set_has_ten_read_and_five_write_tasks():
-    assert len(READ_TASKS) == 10
-    assert len(WRITE_TASKS) == 5
+def test_the_task_set_has_twenty_read_and_seven_write_tasks():
+    assert len(READ_TASKS) == 20
+    assert len(WRITE_TASKS) == 7
 
 
 @pytest.mark.parametrize("task", READ_TASKS, ids=lambda t: t["id"])
 def test_every_read_task_points_at_source_that_contains_its_keywords(task):
-    text = ""
     for p in task["paths"]:
+        assert glob.glob(str(ROOT / re.sub(r":\d+-\d+$", "", p))), p
+    text = ""
+    for p in task.get("baseline_paths", task["paths"]):
         path = ROOT / re.sub(r":\d+-\d+$", "", p)
         assert path.exists(), p
         text += path.read_text().lower()
@@ -145,7 +172,7 @@ async def test_perfect_answers_score_one_hundred_percent():
     assert summary["write"]["check_pass_pct"] == 100
     assert summary["speed"]["tok_per_s"] is not None
     assert summary["memory"]["peak_rss_gb"] is None
-    assert len(res["reads"]) == 10 and len(res["writes"]) == 5
+    assert len(res["reads"]) == 20 and len(res["writes"]) == 7
 
 
 async def test_hallucinated_claims_show_up_as_stripped():
@@ -159,7 +186,7 @@ async def test_hallucinated_claims_show_up_as_stripped():
 async def test_unusable_output_is_counted_as_unverifiable_and_wrong():
     respx.post(URL).mock(side_effect=model(broken=True))
     res = await flint_eval.run_eval(Config(), EVALS, pid_fn=lambda: None)
-    assert res["summary"]["read"]["unverifiable"] == 10
+    assert res["summary"]["read"]["unverifiable"] == 20
     assert res["summary"]["read"]["correct_pct"] == 0
     assert res["summary"]["write"]["check_pass_pct"] == 0
 
@@ -230,4 +257,4 @@ def test_main_needs_a_label_or_compare():
 async def test_a_dead_server_is_counted_as_errors_not_wrong_answers():
     respx.post(URL).mock(side_effect=httpx.ConnectError("refused"))
     res = await flint_eval.run_eval(Config(), EVALS, pid_fn=lambda: None)
-    assert res["summary"]["run"]["errors"] == 15
+    assert res["summary"]["run"]["errors"] == 27

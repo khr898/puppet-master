@@ -28,5 +28,17 @@
     "fixture": "fix_dedupe",
     "task": "Make dedupe() remove duplicates but keep the first occurrence of each item in its original order.",
     "files": ["lists.py"]
+  },
+  {
+    "id": "big-fahrenheit",
+    "fixture": "fix_big_units",
+    "task": "Fix celsius_to_fahrenheit so 100 C converts to 212 F; it subtracts 32 where it should add 32.",
+    "files": ["units.py"]
+  },
+  {
+    "id": "big-add-kelvin",
+    "fixture": "add_big_units",
+    "task": "Add a function celsius_to_kelvin(value) that returns _check(value) + 273.15, after fahrenheit_to_celsius.",
+    "files": ["units.py"]
   }
 ]

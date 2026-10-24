@@ -54,6 +54,7 @@ All paths are absolute. The project root is the git toplevel of the paths given.
 
 1. The bridge reads the files itself and prefixes each line with its number (`  42| code`).
 2. Files are split into chunks that fit the context: the 16384-token window minus room for the prompt and the answer, with a default budget of 10k tokens of file per call. When there are several chunks, they are processed map-reduce style: per-chunk answers first, then a merge step.
+   - **Focused reads (the default):** when the files need more than one chunk, the bridge searches them instead (`retrieve.py`). It splits each file into top-level blocks (a new block starts at an unindented line after a blank line, at most 60 lines), scores every block against the question with BM25 over identifier terms (`parseHTTPResponse` → `parsehttpresponse`, `parse`, `http`, `response`), doubles the score of a block that defines a name the question mentions, drops blocks under 20% of the best score, and packs the rest, best first, into one chunk of `[budget].focus_tokens` (default 3,000). Each of the top three blocks brings along the blocks in its file that define the names it uses, so a function arrives with its constants and helpers. Lines left out are `None`: they render as one `...| (lines not shown)` marker per gap, and a claim citing one fails verification. The report carries `focus: {blocks, of_blocks, shown_tokens, total_tokens}`. With no block sharing a term with the question, the normal chunk limits apply. `exhaustive=true` skips the search.
 3. Flint must return JSON: `{"answer": str, "claims": [{"text", "file", "line", "quote"}]}`. This is **grammar-constrained**: the request sends `response_format: {"type": "json_schema", "json_schema": {"schema": ...}}`, so llama-server can only produce output that matches the schema. Structure errors become impossible, and only the *content* (the quotes) still needs verifying.
 4. The bridge checks each claim. It passes only if `quote`, after whitespace is normalized, appears within lines `[line-2, line+2]` of `file`.
 5. Claims that fail are **removed**, and `stripped` counts them. If `answer` relies on a removed claim, the report says `"answer_confidence": "degraded"`.
@@ -63,6 +64,7 @@ All paths are absolute. The project root is the git toplevel of the paths given.
 ### Write pipeline (mandatory)
 
 1. Flint gets the current contents of `files` with line numbers, plus the task and constraints, and must return full replacement contents for each file it changes. It never returns diff hunks, because small models get hunks wrong.
+   - **Region edits:** a file over `[budget].region_tokens` (default 2,000) isn't sent whole. The bridge splits it into top-level blocks, ranks them against the task and constraints the same way, and picks the file's header (its first block plus any import-only blocks after it) and at most 4 blocks scoring at least half the best, up to `region_tokens`. Neighbouring blocks are merged into one region, and each region ends at its last non-blank line so its text round-trips exactly. Flint sees an outline (the first line of every other block, numbered) and each `REGION` labelled with its id and line range, and returns the full new text of each region it changes. The bridge splices those in and builds the patch from the whole new file as usual, so the check and Claude's review of the patch don't change. An unknown region id gives `unexpected_region`, and whole-file content for a region file gives `unexpected_path`. If no block matches the task, the result is `over_budget` with a hint to name the function.
 2. The bridge builds the patch in a temporary `git worktree` at `HEAD`:
    - It recreates the user's current state there: it applies `git diff HEAD`, copies untracked files, and symlinks `.venv` and `node_modules`.
    - It runs `git add -A` so that state becomes the baseline.
@@ -132,17 +134,19 @@ Flint has a 16,384-token window, and each call needs room for the prompt, the fi
 | Total window | 16,384 tokens | `flint_status().ctx` |
 | File content per chunk | ~10,000 tokens (~40 KB, roughly 800–1,000 lines of code) | `[budget].chunk_tokens` |
 | Chunks per `flint_read` | ≤ 8 (~80k tokens of source in total) | hard limit |
-| Largest file for `flint_write` | ~6,000 tokens (~24 KB), because the answer must hold the whole file | hard limit |
-| Files per `flint_write` | ≤ 3, combined ≤ 6,000 tokens | hard limit |
+| Focused read shown to Flint | ~3,000 tokens of the best-matching blocks | `[budget].focus_tokens` |
+| Largest file text for focused reads | ~500,000 tokens (~2 MB) loaded and ranked | hard limit |
+| Region edits | files over ~2,000 tokens, ≤ 2,000 tokens of regions per file | `[budget].region_tokens` |
+| Editable text per `flint_write` | ≤ 6,000 tokens: whole small files plus the regions of big ones | hard limit |
+| Files per `flint_write` | ≤ 3 | hard limit |
 
 - **Exposed to Claude:** `flint_status()` returns these budgets. Every tool description states its limit in one line, e.g. *"Max ~10k tokens of files per chunk, 8 chunks per call."*
 - **Preflight:** before calling Flint, the bridge estimates the input size (`ceil(bytes/4)`).
   - Over the limit, it returns `{"error": "over_budget", "est_tokens", "limit", "hint"}` without calling the model. The hint suggests narrower paths, a line range, or splitting the task.
 - **Claude's duties** (stated in the server instructions and `CLAUDE.md`):
-  - Pass specific files or line ranges, not whole directories.
+  - Pass files, line ranges or globs, never whole directories. A big glob is fine: the read is searched.
   - Split big reads by question or by module.
-  - Split a big write into one task per file.
-  - Keep any write that touches a file over ~6k tokens.
+  - Split a big write into one task per file, and name the function or class in the task so region edits pick the right blocks.
 - **Line ranges:** `flint_read` paths accept `path:start-end`, so Claude can send only the part that matters.
 
 ### Policy layers (who does the job)
@@ -189,8 +193,9 @@ src/flint_bridge/
   server.py        → FastMCP app, server instructions, tool registration
   llm.py           → llama-server client (timeout, JSON-schema grammar, cache_prompt)
   lifecycle.py     → server.toml, memory preflight, start/stop, pidfile/lock, idle stop
-  read.py          → line numbering, chunking, map-reduce, claim verification
-  write.py         → full-file generation, difflib patch, staging, apply
+  read.py          → line numbering, chunking, map-reduce, focused reads, claim verification
+  retrieve.py      → block splitting, BM25 ranking, definition expansion
+  write.py         → full-file and region generation, splicing, staging, apply
   check.py         → allow-list loading, worktree runner, failure extraction
   report.py        → 500-token cap, truncation
   log.py, stats.py → JSONL call log + summary CLI
@@ -212,6 +217,8 @@ lint = ["uv", "run", "ruff", "check", "."]
 [budget]
 chunk_tokens = 10000
 timeout_s = 90
+focus_tokens = 3000   # focused reads
+region_tokens = 2000  # region edits
 ```
 
 ## Code Style
@@ -299,7 +306,7 @@ The samples stay local, `.flint/` is gitignored, and the files are capped at 200
 ## Open Questions
 
 1. ~~Dependencies in the check worktree~~ **Resolved:** projects keep a uv `.venv` at the project root, and the check worktree symlinks it (and `node_modules` if present) from the main tree.
-2. ~~Large files in `flint_write`~~ **Resolved:** a file over ~6k tokens gets `over_budget` and Claude keeps the task. Editing per function is not in v1.
+2. ~~Large files in `flint_write`~~ **Resolved (revised 2026-10-25):** files over ~2k tokens are edited by region (see Write pipeline). See [ADR 0003](../decisions/0003-bm25-focus-and-region-edits.md).
 3. ~~`flint_ask` scope~~ **Resolved:** `flint_ask` is for drafts and prose only. Its description sends questions about code to `flint_read`, and its output is always `verified: false`.
 4. ~~The Flint model and llama.cpp PR~~ **Resolved:** PRs #30928 and #30929 were merged 2026-10-21, so llama.cpp is built from master. The model is `unsloth/flint-GGUF` `UD-IQ2_XXS` (11.86 GB), because Q2_K_XL and IQ2_M don't fit in 18GB. See [docs/setup/flint-server.md](../setup/flint-server.md).
 5. ~~Where `CLAUDE.md` goes~~ **Resolved:** per project. See Policy layers.

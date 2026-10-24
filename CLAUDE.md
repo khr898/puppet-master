@@ -27,8 +27,8 @@ This project uses the local `flint-engine` MCP server (Flint, a 16K-context mode
 - **When you skip Flint**, say why in one line, for example "skipping Flint: architecture call".
 
 **Mind Flint's context:** run `flint_status()` once per session to get the current budgets.
-- `flint_read`: up to ~10k tokens of file content per chunk and 8 chunks per call. Pass specific files or `path:start-end` ranges, never whole directories.
-- `flint_write`: up to 3 files, ~6k tokens in total. Split bigger changes into one task per file, and keep any write that touches a file larger than that.
+- `flint_read`: pass files, `path:start-end` ranges or globs (e.g. `/repo/src/**/*.py`), never directories. Anything over one chunk (~10k tokens) is searched with BM25 and Flint sees only the ~3k tokens of blocks that best match the question; `focus` in the report says how much it saw. Use this to find code instead of grepping. `exhaustive=true` reads everything instead, up to 8 chunks.
+- `flint_write`: up to 3 files, ~6k tokens of editable text in total. A file over ~2k tokens is edited by region: Flint sees an outline and rewrites only the blocks that match the task, so name the function or class to change in the task. Split bigger changes into one task per function.
 - If a call returns `over_budget`, narrow the request or split it. Don't resend it unchanged.
 
 **Checks are mandatory:**

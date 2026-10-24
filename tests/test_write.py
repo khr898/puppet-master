@@ -1,6 +1,8 @@
 import hashlib
 import json
+import re
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -10,7 +12,15 @@ import respx
 from flint_bridge import server
 from flint_bridge.config import Config, load_config
 from flint_bridge.gitops import run_git
-from flint_bridge.write import SYSTEM_WRITE, flint_write_impl, task_key
+from flint_bridge.write import (
+    SYSTEM_WRITE,
+    Region,
+    flint_write_impl,
+    pick_regions,
+    splice,
+    task_key,
+    write_schema,
+)
 
 URL = f"{Config().base_url}/v1/chat/completions"
 
@@ -304,3 +314,110 @@ def test_flint_state_is_not_copied_into_the_worktree(git_repo):
     (git_repo / ".flint" / "staging" / "abc.patch").write_text("x")
     with baseline_worktree(git_repo) as tmp:
         assert not (tmp / ".flint").exists()
+
+
+def _big_module(path: Path, n: int = 80) -> str:
+    """A module well over region_tokens: an import header and n small functions."""
+    funcs = [f"def scale_{i}(x):\n    return x * {i}\n" for i in range(n)]
+    text = "import math\n\n\n" + "\n\n".join(funcs)
+    path.write_text(text)
+    return text
+
+
+def _regions(msg: str) -> dict[str, tuple[int, int]]:
+    return {
+        m[1]: (int(m[2]), int(m[3]))
+        for m in re.finditer(r"=== REGION (r\d+) \S+:(\d+)-(\d+) ===", msg)
+    }
+
+
+@respx.mock
+async def test_a_big_file_is_edited_by_region_and_spliced_back(git_repo):
+    mod = git_repo / "big.py"
+    text = _big_module(mod)
+    cfg = replace(load_config(git_repo), region_tokens=200)
+    task = "make scale_37 return x * 37 + 1"
+
+    def reply(request):
+        msg = json.loads(request.content)["messages"][1]["content"]
+        rid = next(
+            r
+            for r, (a, z) in _regions(msg).items()
+            if "def scale_37" in "\n".join(text.splitlines()[a - 1 : z])
+        )
+        a, z = _regions(msg)[rid]
+        body = "\n".join(text.splitlines()[a - 1 : z])
+        body = body.replace("    return x * 37", "    return x * 37 + 1", 1)
+        return llm_reply({"regions": [{"id": rid, "content": body}], "notes": ""})
+
+    route = respx.post(URL).mock(side_effect=reply)
+    out = await flint_write_impl(cfg, task, [str(mod)], "")
+
+    msg = user_message(route)
+    assert "OUTLINE" in msg and "def scale_70(x):" in msg  # outline line
+    assert "return x * 70" not in msg  # but not its body
+    assert "import math" in msg  # the header is always a region
+    assert out["check"]["passed"] is True
+    patch = Path(out["patch_path"]).read_text()
+    assert "+    return x * 37 + 1" in patch
+    changed = [ln for ln in patch.splitlines() if ln[:1] in "+-" and ln[:3] not in ("+++", "---")]
+    assert changed == ["-    return x * 37", "+    return x * 37 + 1"]
+
+
+@respx.mock
+async def test_an_unknown_region_or_a_whole_file_reply_for_it_is_rejected(git_repo):
+    mod = git_repo / "big.py"
+    _big_module(mod)
+    cfg = replace(load_config(git_repo), region_tokens=200)
+    bad = {"files": [], "regions": [{"id": "r99", "content": "x"}], "notes": ""}
+    respx.post(URL).mock(return_value=llm_reply(bad))
+    out = await flint_write_impl(cfg, "change scale_3", [str(mod)], "")
+    assert out["error"] == "unexpected_region"
+    respx.post(URL).mock(return_value=llm_reply(edit(mod, "x = 1\n")))
+    out = await flint_write_impl(cfg, "change scale_3", [str(mod)], "")
+    assert out["error"] == "unexpected_path"
+    assert staged(git_repo) == []
+
+
+@respx.mock
+async def test_a_big_file_with_nothing_matching_the_task_is_over_budget(git_repo):
+    mod = git_repo / "big.py"
+    _big_module(mod)
+    route = respx.post(URL).mock(return_value=llm_reply(edit(mod, "x")))
+    cfg = replace(load_config(git_repo), region_tokens=200)
+    out = await flint_write_impl(cfg, "zzz qqq", [str(mod)], "")
+    assert out["error"] == "over_budget" and "name the function" in out["hint"]
+    assert route.call_count == 0
+
+
+def test_splice_replaces_only_the_changed_regions_and_keeps_the_rest():
+    text = "a\nb\nc\nd\ne\n"
+    regions = [Region("r1", Path("f"), 1, 1), Region("r2", Path("f"), 4, 5)]
+    assert splice(text, regions, {"r2": "D\nE\nF"}) == "a\nb\nc\nD\nE\nF\n"
+    assert splice(text, regions, {"r1": ""}) == "b\nc\nd\ne\n"
+    assert splice(text, regions, {}) == text
+
+
+def test_pick_regions_merges_neighbours_and_keeps_the_header():
+    text = "import os\n\n\ndef f():\n    pass\n\n\ndef g():\n    pass\n\n\ndef h():\n    pass\n"
+    regions = pick_regions(Path("m.py"), text, "change f and g", budget=40)
+    assert [(r.start, r.end) for r in regions] == [(1, 9)]
+    assert pick_regions(Path("m.py"), text, "change h", budget=40)[-1].start == 12
+    assert pick_regions(Path("m.py"), text, "nothing here", budget=40) is None
+
+
+def test_the_schema_only_offers_what_the_call_can_use():
+    assert write_schema(True, False)["required"] == ["files", "notes"]
+    assert write_schema(False, True)["required"] == ["regions", "notes"]
+    assert "files" not in write_schema(False, True)["properties"]
+    assert write_schema(True, True)["required"] == ["files", "regions", "notes"]
+
+
+def test_only_clear_matches_become_regions_and_imports_join_the_header():
+    funcs = "\n\n".join(f"def scale_{i}(value):\n    return value * {i}\n" for i in range(40))
+    text = '"""Doc."""\n\nimport math\n\n\n' + funcs
+    regions = pick_regions(Path("m.py"), text, "fix scale_7 so it returns value", budget=2000)
+    lines = text.splitlines()
+    shown = [lines[n - 1] for r in regions for n in range(r.start, r.end + 1)]
+    assert "import math" in shown and "def scale_7(value):" in shown
+    assert sum(ln.startswith("def ") for ln in shown) == 1

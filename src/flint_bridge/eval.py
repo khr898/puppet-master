@@ -42,7 +42,9 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
     paths = [f"{repo}/{p}" for p in task["paths"]]
     usage = Usage()
     try:
-        out = await flint_read_impl(cfg, paths, task["question"], usage=usage, ready=ready)
+        out = await flint_read_impl(
+            cfg, paths, task["question"], usage=usage, ready=ready, focus=True
+        )
     except FlintOffline:
         out = {"error": "flint_offline"}
     correct = "answer" in out and answer_correct(out["answer"], task["must_mention"])
@@ -50,7 +52,11 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
         "id": task["id"],
         "error": out.get("error"),
         "correct": correct,
-        "savings": savings.read_savings(paths, out, ok=correct),
+        # What Claude would have read without Flint: the files that hold the answer.
+        "savings": savings.read_savings(
+            [f"{repo}/{p}" for p in task.get("baseline_paths", task["paths"])], out, ok=correct
+        ),
+        "focus": out.get("focus"),
         "claims": len(out.get("claims", [])),
         "stripped": out.get("stripped", 0),
         "unverifiable": out.get("error") == "unverifiable_output",

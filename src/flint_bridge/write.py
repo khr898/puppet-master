@@ -1,8 +1,10 @@
 import asyncio
 import hashlib
 import json
+import re
 import uuid
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,16 +14,30 @@ from flint_bridge.config import Config
 from flint_bridge.gitops import GitError, run_git, stage_and_check, toplevel
 from flint_bridge.read import Usage, _complete_json, _norm
 from flint_bridge.report import est_tokens
+from flint_bridge.retrieve import Block, rank, split_blocks
 
 NOTES_CHARS = 300
 REPORT_FAILURES = 5
 REPORT_FAILURE_CHARS = 150
-OVER_BUDGET_HINT = "split into one task per file; files over ~6k tokens stay with Claude"
+OVER_BUDGET_HINT = "split into one task per file, or name the function to change in the task"
+# Largest file edited by region, and the most outline lines shown for the rest of it.
+REGION_MAX_FILE_TOKENS = 200_000
+# A region block must score at least this share of the best block, and at most this many are
+# picked: in a big file most blocks share a word or two with any task, and editable text that
+# the task isn't about only invites unasked-for changes.
+REGION_MIN_SHARE = 0.5
+REGION_MAX_BLOCKS = 4
+# Lines that belong to a file's header: imports, includes, package lines, comments.
+_HEADER_LINE = re.compile(r"^\s*(import |from \S+ import |#|//|package |use |require|using )")
+OUTLINE_LINES = 120
 
 SYSTEM_WRITE = (
     "You edit source files. Return the COMPLETE new content of every file you change — never "
-    "diffs or fragments. Do not change files you were not given. Reply with JSON only: "
-    '{"files": [{"path": string, "content": string}], "notes": string}.'
+    "diffs or fragments. Do not change files you were not given. A big file comes as an "
+    "OUTLINE plus numbered REGIONs: return the COMPLETE new text of each region you change in "
+    '"regions"; everything outside the regions stays as it is. Reply with JSON only: '
+    '{"files": [{"path": string, "content": string}], '
+    '"regions": [{"id": string, "content": string}], "notes": string}.'
 )
 
 WRITE_SCHEMA = {
@@ -35,10 +51,31 @@ WRITE_SCHEMA = {
                 "required": ["path", "content"],
             },
         },
+        "regions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}, "content": {"type": "string"}},
+                "required": ["id", "content"],
+            },
+        },
         "notes": {"type": "string"},
     },
     "required": ["files", "notes"],
 }
+
+
+def write_schema(whole: bool, regions: bool) -> dict:
+    """WRITE_SCHEMA narrowed to the parts this call can use, so the grammar rules out the rest:
+    a call whose files are all edited by region can't answer with whole files, and vice versa.
+    """
+    props = WRITE_SCHEMA["properties"]
+    keep = [k for k, on in (("files", whole), ("regions", regions)) if on]
+    return {
+        "type": "object",
+        "properties": {k: props[k] for k in [*keep, "notes"]},
+        "required": [*keep, "notes"],
+    }
 
 
 def task_key(task: str) -> str:
@@ -46,18 +83,95 @@ def task_key(task: str) -> str:
     return hashlib.sha256(_norm(task).lower().encode()).hexdigest()[:12]
 
 
-def _valid_write(data: dict) -> bool:
-    files, notes = data.get("files"), data.get("notes")
-    return (
-        isinstance(notes, str)
-        and isinstance(files, list)
-        and all(
-            isinstance(f, dict)
-            and isinstance(f.get("path"), str)
-            and isinstance(f.get("content"), str)
-            for f in files
-        )
+def _valid_items(items: object, key: str) -> bool:
+    return isinstance(items, list) and all(
+        isinstance(f, dict) and isinstance(f.get(key), str) and isinstance(f.get("content"), str)
+        for f in items
     )
+
+
+def _valid_write(data: dict) -> bool:
+    return (
+        isinstance(data.get("notes"), str)
+        and _valid_items(data.get("files", []), "path")
+        and _valid_items(data.get("regions", []), "id")
+    )
+
+
+@dataclass(frozen=True)
+class Region:
+    id: str
+    path: Path
+    start: int  # first line, 1-based
+    end: int  # last line, inclusive
+
+
+def pick_regions(path: Path, text: str, query: str, budget: int) -> list[Region] | None:
+    """The parts of a big file the task is about: its header plus the few top-level blocks that
+    clearly match the task best (BM25), up to `budget` tokens, with neighbouring blocks merged.
+
+    None if no block matches the task or the best block alone is over the budget.
+    """
+    blocks = split_blocks(str(path), 1, text.splitlines())
+    if not blocks:
+        return None
+    size = {id(b): est_tokens("\n".join(b.lines)) for b in blocks}
+    scored = rank(query, blocks)
+    top = scored[0][0] if scored else 0
+    ranked = [b for score, b in scored if score > 0 and score >= REGION_MIN_SHARE * top]
+    ranked = ranked[:REGION_MAX_BLOCKS]
+    if not ranked or size[id(ranked[0])] > budget:
+        return None
+    head = [blocks[0]]
+    for b in blocks[1:]:
+        if not all(_HEADER_LINE.match(x) for x in b.lines if x.strip()):
+            break
+        head.append(b)
+    if sum(size[id(b)] for b in head) > budget // 4:
+        head = []
+    picked: list[Block] = []
+    used = 0
+    for b in [*head, *ranked]:
+        if b in picked or used + size[id(b)] > budget:
+            continue
+        picked.append(b)
+        used += size[id(b)]
+    # A region ends at its last non-blank line, so its text round-trips through the prompt
+    # exactly; the blank lines between blocks stay outside every region.
+    order = {id(b): i for i, b in enumerate(blocks)}
+    spans: list[list[int]] = []
+    last = -2
+    for b in sorted(picked, key=lambda b: b.start):
+        end = b.start + max(i for i, x in enumerate(b.lines) if x.strip() or i == 0)
+        if spans and order[id(b)] == last + 1:
+            spans[-1][1] = end
+        else:
+            spans.append([b.start, end])
+        last = order[id(b)]
+    return [Region("", path, a, z) for a, z in spans]
+
+
+def _outline(lines: list[str], regions: list[Region]) -> str:
+    """Numbered first lines of the top-level blocks outside the regions: read-only context."""
+    inside = {n for r in regions for n in range(r.start, r.end + 1)}
+    heads = [
+        f"{b.start:>5}| {b.lines[0]}"
+        for b in split_blocks("", 1, lines)
+        if b.start not in inside and b.lines[0].strip()
+    ]
+    return "\n".join(heads[:OUTLINE_LINES])
+
+
+def splice(text: str, regions: list[Region], new: dict[str, str]) -> str:
+    """text with each region whose id is in `new` replaced by its new content."""
+    lines = text.splitlines(keepends=True)
+    for r in sorted(regions, key=lambda r: r.start, reverse=True):
+        if r.id in new:
+            body = new[r.id]
+            if body and not body.endswith("\n"):
+                body += "\n"
+            lines[r.start - 1 : r.end] = [body]
+    return "".join(lines)
 
 
 def _over_budget(tokens: int, limit: int) -> dict:
@@ -80,10 +194,27 @@ def _repo_root(paths: list[Path]) -> Path | dict:
     return next(iter(roots.values()))
 
 
-def _write_prompt(contents: dict[Path, str | None], task: str, constraints: str) -> str:
-    """Files in sorted order first (stable prefix for the KV cache), then the task and notes."""
+def _write_prompt(
+    contents: dict[Path, str | None],
+    task: str,
+    constraints: str,
+    regions: dict[Path, list[Region]] | None = None,
+) -> str:
+    """Files in sorted order first (stable prefix for the KV cache), then the task and notes.
+
+    A file in `regions` is shown as an outline plus its regions instead of in full.
+    """
+    regions = regions or {}
     parts = []
     for path, text in sorted(contents.items()):
+        if path in regions:
+            lines = text.splitlines()
+            parts.append(f"=== FILE {path} (OUTLINE; only the REGIONs below can change) ===\n")
+            parts.append(f"{_outline(lines, regions[path])}\n")
+            for r in regions[path]:
+                body = "\n".join(lines[r.start - 1 : r.end])
+                parts.append(f"=== REGION {r.id} {path}:{r.start}-{r.end} ===\n{body}\n")
+            continue
         body = "(new file)" if text is None else text
         parts.append(f"=== FILE {path} ===\n{body}\n")
     return "".join(parts) + f"\nTASK: {task}\nCONSTRAINTS: {constraints.strip() or 'none'}"
@@ -133,10 +264,26 @@ async def flint_write_impl(
             contents[p] = p.read_text(encoding="utf-8") if p.exists() else None
         except (OSError, UnicodeDecodeError):
             return {"error": "unreadable", "path": str(p)}
-    sizes = [est_tokens(t) for t in contents.values() if t is not None]
-    if sum(sizes) > cfg.write_max_tokens or any(s > cfg.write_max_tokens for s in sizes):
-        return _over_budget(sum(sizes), cfg.write_max_tokens)
-    prompt = _write_prompt(contents, task, constraints)
+    sizes = {p: est_tokens(t) for p, t in contents.items() if t is not None}
+    regions: dict[Path, list[Region]] = {}
+    for p, n in sizes.items():
+        if n <= cfg.region_tokens or n > REGION_MAX_FILE_TOKENS:
+            continue
+        picked = pick_regions(p, contents[p], f"{task}\n{constraints}", cfg.region_tokens)
+        if picked is None:
+            return _over_budget(n, cfg.region_tokens)
+        regions[p] = picked
+    ids = (f"r{i}" for i in range(1, 1000))
+    regions = {p: [replace(r, id=next(ids)) for r in rs] for p, rs in regions.items()}
+    editable = {p: n for p, n in sizes.items() if p not in regions}
+    for p, rs in regions.items():
+        lines = contents[p].splitlines()
+        editable[p] = sum(est_tokens("\n".join(lines[r.start - 1 : r.end])) for r in rs)
+    if sum(editable.values()) > cfg.write_max_tokens or any(
+        n > cfg.write_max_tokens for n in editable.values()
+    ):
+        return _over_budget(sum(editable.values()), cfg.write_max_tokens)
+    prompt = _write_prompt(contents, task, constraints, regions)
     max_out = cfg.write_max_tokens + 500 + cfg.reasoning_reserve
     prompt_tokens = est_tokens(SYSTEM_WRITE + prompt)
     if not fits(prompt_tokens, max_out, cfg):
@@ -154,14 +301,28 @@ async def flint_write_impl(
         return err
 
     data = await _complete_json(
-        cfg, SYSTEM_WRITE, prompt, WRITE_SCHEMA, max_out, usage, _valid_write
+        cfg,
+        SYSTEM_WRITE,
+        prompt,
+        write_schema(len(regions) < len(paths), bool(regions)),
+        max_out,
+        usage,
+        _valid_write,
     )
     if data is None:
         return {"error": "unverifiable_output"}
-    allowed = {str(p) for p in paths}
-    if any(str(Path(f["path"])) not in allowed for f in data["files"]):
+    allowed = {str(p) for p in paths if p not in regions}
+    if any(str(Path(f["path"])) not in allowed for f in data.get("files", [])):
         return {"error": "unexpected_path"}
-    new_files = {Path(f["path"]): f["content"] for f in data["files"]}
+    new_files = {Path(f["path"]): f["content"] for f in data.get("files", [])}
+    known = {r.id: p for p, rs in regions.items() for r in rs}
+    new_regions = {r["id"]: r["content"] for r in data.get("regions", [])}
+    if any(i not in known for i in new_regions):
+        return {"error": "unexpected_region"}
+    for p, rs in regions.items():
+        mine = {r.id: new_regions[r.id] for r in rs if r.id in new_regions}
+        if mine:
+            new_files[p] = splice(contents[p], rs, mine)
     if not new_files:
         return {"error": "no_changes"}
 
