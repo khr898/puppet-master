@@ -11,6 +11,8 @@ from flint_bridge.config import Config
 
 # Dependency folders linked into the worktree instead of copied.
 LINKED = (".venv", "node_modules")
+# Never copied into the worktree: the bridge's own state (staged patches, logs, samples).
+NOT_COPIED = (*LINKED, ".flint")
 
 
 def toplevel(path: Path) -> Path | None:
@@ -64,7 +66,7 @@ def baseline_worktree(root: Path) -> Iterator[Path]:
         if diff:
             run_git(tmp, "apply", "--whitespace=nowarn", input=diff)
         for rel in run_git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0"):
-            if not rel or Path(rel).parts[0] in LINKED:
+            if not rel or Path(rel).parts[0] in NOT_COPIED:
                 continue
             dest = tmp / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -103,7 +105,7 @@ def _relative_to_root(root: Path, path: Path) -> Path | None:
 def stage_and_check(cfg: Config, root: Path, new_files: dict[Path, str], check_name: str) -> dict:
     """Write new_files into a baseline worktree, capture the patch, then run the check there.
 
-    Returns {patch, diffstat, check}, or {error} (not_allowed, path_outside_root, no_changes,
+    Returns {patch, diffstat, files, check}, or {error} (not_allowed, path_outside_root, no_changes,
     git_error). The real working tree is never touched.
     """
     if check_name not in cfg.check_commands:
@@ -126,6 +128,12 @@ def stage_and_check(cfg: Config, root: Path, new_files: dict[Path, str], check_n
             if not patch:
                 return {"error": "no_changes"}
             diffstat = run_git(tmp, "diff", "--stat")
-            return {"patch": patch, "diffstat": diffstat, "check": run_check(cfg, tmp, check_name)}
+            files = [f for f in run_git(tmp, "diff", "--name-only", "-z").split("\0") if f]
+            return {
+                "patch": patch,
+                "diffstat": diffstat,
+                "files": files,
+                "check": run_check(cfg, tmp, check_name),
+            }
     except GitError as e:
         return {"error": "git_error", "detail": str(e)[:300]}

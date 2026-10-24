@@ -8,7 +8,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import check, gitops, lifecycle, llm, read, staging
+from flint_bridge import check, gitops, lifecycle, llm, read, staging, write
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -204,6 +204,42 @@ async def flint_read(paths: list[str], question: str) -> dict:
         started,
         root,
         stripped=result.get("stripped"),
+        flint_tokens_in=usage.tokens_in,
+        flint_tokens_out=usage.tokens_out,
+        retries=usage.retries,
+    )
+
+
+@mcp.tool(
+    description="USE THIS for boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
+    "refactors. Flint writes a STAGED patch (your working tree is untouched) and tests run on it "
+    "automatically. You MUST read the patch at patch_path before calling flint_apply. To retry, "
+    "call again with the same task and your feedback in constraints (max 2 attempts). Limits: "
+    "≤3 files, ≤6k tokens total; larger files stay with you."
+)
+async def flint_write(task: str, files: list[str], constraints: str = "") -> dict:
+    started = time.perf_counter()
+    root = _root_of(files)
+    cfg = load_config(root or Path.cwd())
+    usage = read.Usage()
+    try:
+        result = await write.flint_write_impl(
+            cfg, task, files, constraints, usage=usage, ready=partial(ensure_up, cfg)
+        )
+    except llm.FlintOffline:
+        result = {"error": "flint_offline"}
+    outcome = None
+    if result.get("give_up"):
+        outcome = "miss"
+    elif "patch_id" in result:
+        outcome = "staged" if result["check"]["passed"] else "check_failed"
+    return _report(
+        "flint_write",
+        result,
+        started,
+        root,
+        outcome=outcome,
+        task_key=write.task_key(task),
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,
