@@ -1,0 +1,179 @@
+{
+  "summary": {
+    "read": {
+      "n": 10,
+      "correct_pct": 80.0,
+      "avg_claims_kept": 1.4,
+      "avg_stripped": 0.1,
+      "unverifiable": 0
+    },
+    "write": {
+      "n": 5,
+      "check_pass_pct": 100.0
+    },
+    "speed": {
+      "tok_per_s": 34.60701423795815,
+      "avg_reasoning_tokens": 0.0
+    },
+    "memory": {
+      "peak_rss_gb": 1.88
+    },
+    "run": {
+      "errors": 0
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": null,
+      "correct": false,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 91,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.950380292000773
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": false,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 95,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.1597458329997608
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 90,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.044819541995821
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.602425332996063
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 161,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.989811250001367
+    },
+    {
+      "id": "log-outcomes",
+      "error": null,
+      "correct": true,
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 147,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.149446916002489
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 185,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.181076457993186
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": true,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 147,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.519651124996017
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": true,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 98,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.105736375000561
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": true,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 186,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.453273916995386
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "tokens_out": 128,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.103067416996055
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "tokens_out": 117,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.9110781670024153
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": null,
+      "passed": true,
+      "tokens_out": 93,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.3984771670002374
+    },
+    {
+      "id": "roman-numerals",
+      "error": null,
+      "passed": true,
+      "tokens_out": 306,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.9063609590011765
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "tokens_out": 142,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.3969047909995425
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # ADR 0001: Local model choice
 
-- **Status:** Accepted (provisional until the bake-off in T13)
+- **Status:** Accepted (provisional default confirmed by the 2026-10-25 bake-off; Gemma 4 12B Q4 was not compared)
 - **Date:** 2026-10-24
 
 ## Context
@@ -48,6 +48,14 @@ None of these numbers come from an independent test of *this* job (citing exact 
 - **Sampling.** Recursive recommends `temperature 1.0, top_p 0.95, top_k 20` for general use. The bridge uses `temperature 0.2`, because quote extraction and mechanical edits need determinism. The bake-off checks that this doesn't hurt quality.
 - **Possible build branch.** Unsloth's Flint guide points at its `iq1-narrow` llama.cpp branch for its low-bit quants. If mainline llama.cpp can't load UD-IQ2_XXS, use that branch (see the setup doc).
 - **Checkpoint A reasoning check (2026-10-24, measured).** With `--reasoning-budget 0`, a `json_schema` request returned valid JSON in `content`, with 0 chars of `reasoning_content` and no `<think>` text (20 completion tokens). `/props` reported `n_ctx` 16384. The `json_schema` grammar and the reasoning setting work together, so the `reasoning_reserve` fallback isn't needed for now. Answer quality with thinking off is still unmeasured (the T13 bake-off covers it). Free memory read 9% (about 1.7GB) with Flint loaded, so the memory preflight will rightly refuse a second start under this load.
+- **Bake-off result (2026-10-25, measured, Flint UD-IQ2_XXS only).** `flint-eval --label flint-iq2xxs` at `temperature 0.2`, `--reasoning-budget 0`, `ctx` 16384, saved in `evals/results/flint-iq2xxs.json`:
+  - read: 80% answer-correct, 1.4 verified claims kept and 0.1 stripped per task, 0 unverifiable;
+  - write: 100% check-pass;
+  - speed: 34.6 tok/s, 0 reasoning tokens;
+  - peak RSS 1.88GB (server process only; the model is memory-mapped, so this understates the real footprint);
+  - 0 tasks with errors.
+
+  **Gemma 4 12B Q4 was not run**, by the user's choice, so this confirms Flint as the default but doesn't show it beats the alternative. Flint stays the default; the comparison remains open (`flint-eval --compare`) if the one-week trial shows a quality or memory problem.
 
 ## Sources
 

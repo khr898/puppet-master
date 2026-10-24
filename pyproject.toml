@@ -16,6 +16,7 @@ dependencies = [
 flint-bridge = "flint_bridge.server:main"
 flint-stats = "flint_bridge.stats:main"
 flint-eval = "flint_bridge.eval:main"
+flint-savings = "flint_bridge.savings:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]

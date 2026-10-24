@@ -1,0 +1,289 @@
+{
+  "summary": {
+    "read": {
+      "n": 10,
+      "correct_pct": 90.0,
+      "avg_claims_kept": 1.3,
+      "avg_stripped": 0.2,
+      "unverifiable": 0
+    },
+    "write": {
+      "n": 5,
+      "check_pass_pct": 100.0
+    },
+    "speed": {
+      "tok_per_s": 40.18299539549991,
+      "avg_reasoning_tokens": 0.0
+    },
+    "memory": {
+      "peak_rss_gb": 1.54
+    },
+    "savings": {
+      "read": {
+        "baseline": 3993,
+        "with_flint": 1709,
+        "saved": 2284,
+        "saved_pct": 57.20010017530679
+      },
+      "write": {
+        "baseline": 1012,
+        "with_flint": 902,
+        "saved": 110,
+        "saved_pct": 10.869565217391305
+      },
+      "all": {
+        "baseline": 5005,
+        "with_flint": 2611,
+        "saved": 2394,
+        "saved_pct": 47.83216783216783
+      }
+    },
+    "run": {
+      "errors": 0
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 277,
+        "with_flint": 142,
+        "saved": 135,
+        "verify": 38
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 136,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.948487749999913
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 277,
+        "with_flint": 384,
+        "saved": -107,
+        "verify": 17
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 95,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.209526124999684
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 293,
+        "with_flint": 108,
+        "saved": 185,
+        "verify": 36
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 95,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.1899827500019455
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 383,
+        "with_flint": 99,
+        "saved": 284,
+        "verify": 21
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 1.9968321659980575
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 394,
+        "with_flint": 197,
+        "saved": 197,
+        "verify": 62
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 155,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.616398083002423
+    },
+    {
+      "id": "log-outcomes",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 282,
+        "with_flint": 51,
+        "saved": 231,
+        "verify": 0
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 150,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.644767666999542
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 688,
+        "with_flint": 256,
+        "saved": 432,
+        "verify": 107
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 202,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.88231679200544
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 342,
+        "with_flint": 116,
+        "saved": 226,
+        "verify": 18
+      },
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 173,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.165587542003777
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 975,
+        "with_flint": 116,
+        "saved": 859,
+        "verify": 31
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 103,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.724977999998373
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 82,
+        "with_flint": 240,
+        "saved": -158,
+        "verify": 82
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 185,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.3203524999989895
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 65,
+        "with_flint": 143,
+        "saved": -78,
+        "baseline_out": 10
+      },
+      "tokens_out": 103,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.7078787499995087
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 78,
+        "with_flint": 144,
+        "saved": -66,
+        "baseline_out": 14
+      },
+      "tokens_out": 118,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.9587761250004405
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 60,
+        "with_flint": 153,
+        "saved": -93,
+        "baseline_out": 10
+      },
+      "tokens_out": 101,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.5833282500025234
+    },
+    {
+      "id": "roman-numerals",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 592,
+        "with_flint": 281,
+        "saved": 311,
+        "baseline_out": 116
+      },
+      "tokens_out": 283,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.537453917000676
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 217,
+        "with_flint": 181,
+        "saved": 36,
+        "baseline_out": 41
+      },
+      "tokens_out": 141,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.421285791999253
+    }
+  ]
+}

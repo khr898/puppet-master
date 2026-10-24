@@ -12,7 +12,7 @@ from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
-from flint_bridge import lifecycle, server
+from flint_bridge import lifecycle, savings, server
 from flint_bridge.config import Config, load_config
 from flint_bridge.llm import FlintOffline
 from flint_bridge.read import Usage, flint_read_impl
@@ -45,10 +45,12 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
         out = await flint_read_impl(cfg, paths, task["question"], usage=usage, ready=ready)
     except FlintOffline:
         out = {"error": "flint_offline"}
+    correct = "answer" in out and answer_correct(out["answer"], task["must_mention"])
     return {
         "id": task["id"],
         "error": out.get("error"),
-        "correct": "answer" in out and answer_correct(out["answer"], task["must_mention"]),
+        "correct": correct,
+        "savings": savings.read_savings(paths, out, ok=correct),
         "claims": len(out.get("claims", [])),
         "stripped": out.get("stripped", 0),
         "unverifiable": out.get("error") == "unverifiable_output",
@@ -80,14 +82,18 @@ async def run_write_task(cfg: Config, task: dict, evals_dir: Path, ready: Ready 
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "fixture")
         files = [str(repo / f) for f in task["files"]]
+        texts = [Path(f).read_text() for f in files]
         try:
             out = await flint_write_impl(cfg, task["task"], files, "", usage=usage, ready=ready)
         except FlintOffline:
             out = {"error": "flint_offline"}
+        patch = Path(out["patch_path"]).read_text() if "patch_path" in out else None
+    passed = bool(out.get("check", {}).get("passed"))
     return {
         "id": task["id"],
         "error": out.get("error"),
-        "passed": bool(out.get("check", {}).get("passed")),
+        "passed": passed,
+        "savings": savings.write_savings(texts, patch, out, passed=passed),
         "tokens_out": usage.tokens_out,
         "reasoning_tokens": usage.reasoning_tokens,
         "model_seconds": usage.model_seconds,
@@ -140,6 +146,11 @@ def summarize(reads: list[dict], writes: list[dict], peak_gb: float | None) -> d
             "avg_reasoning_tokens": _avg([r["reasoning_tokens"] for r in everything]),
         },
         "memory": {"peak_rss_gb": peak_gb},
+        "savings": {
+            "read": savings.totals([r["savings"] for r in reads]),
+            "write": savings.totals([w["savings"] for w in writes]),
+            "all": savings.totals([r["savings"] for r in everything]),
+        },
         # Tasks that failed for a reason other than the model's answer (server down, over budget).
         "run": {"errors": sum(r["error"] not in (None, "unverifiable_output") for r in everything)},
     }
@@ -225,6 +236,12 @@ async def amain(argv: list[str] | None = None) -> int:
         print(render_table(loaded))
         return 0
 
+    code, _ = await run_and_save(evals_dir, results_dir, args.label)
+    return code
+
+
+async def run_and_save(evals_dir: Path, results_dir: Path, label: str) -> tuple[int, dict]:
+    """Run every task against the live server, save the result, print the score table."""
     cfg = load_config(evals_dir.resolve().parent)
     try:
         sc = lifecycle.load_server_config()
@@ -238,14 +255,14 @@ async def amain(argv: list[str] | None = None) -> int:
         ready=partial(server.ensure_up, cfg),
     )
     results_dir.mkdir(parents=True, exist_ok=True)
-    (results_dir / f"{args.label}.json").write_text(json.dumps(result, indent=2))
-    print(render_table({args.label: result}))
+    (results_dir / f"{label}.json").write_text(json.dumps(result, indent=2))
+    print(render_table({label: result}))
     if errors := result["summary"]["run"]["errors"]:
         print(
             f"\nWARNING: {errors} task(s) errored (server down or over budget), not wrong answers."
         )
-    print(f"\n{round(time.perf_counter() - started)}s; saved to {results_dir / args.label}.json")
-    return 0
+    print(f"\n{round(time.perf_counter() - started)}s; saved to {results_dir / label}.json\n")
+    return 0, result
 
 
 def main(argv: list[str] | None = None) -> int:
