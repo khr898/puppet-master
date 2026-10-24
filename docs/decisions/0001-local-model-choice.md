@@ -47,6 +47,7 @@ None of these numbers come from an independent test of *this* job (citing exact 
   - If thinking can't be suppressed, a `reasoning_reserve` is taken out of the chunk budget.
 - **Sampling.** Recursive recommends `temperature 1.0, top_p 0.95, top_k 20` for general use. The bridge uses `temperature 0.2`, because quote extraction and mechanical edits need determinism. The bake-off checks that this doesn't hurt quality.
 - **Possible build branch.** Unsloth's Flint guide points at its `iq1-narrow` llama.cpp branch for its low-bit quants. If mainline llama.cpp can't load UD-IQ2_XXS, use that branch (see the setup doc).
+- **Checkpoint A reasoning check (2026-10-24, measured).** With `--reasoning-budget 0`, a `json_schema` request returned valid JSON in `content`, with 0 chars of `reasoning_content` and no `<think>` text (20 completion tokens). `/props` reported `n_ctx` 16384. The `json_schema` grammar and the reasoning setting work together, so the `reasoning_reserve` fallback isn't needed for now. Answer quality with thinking off is still unmeasured (the T13 bake-off covers it). Free memory read 9% (about 1.7GB) with Flint loaded, so the memory preflight will rightly refuse a second start under this load.
 
 ## Sources
 
