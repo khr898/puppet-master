@@ -2,7 +2,7 @@ import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from flint_bridge.budget import PathError, expand, fits
+from flint_bridge.budget import HEADROOM, PathError, expand, fits
 from flint_bridge.config import Config
 from flint_bridge.llm import complete
 from flint_bridge.report import est_tokens
@@ -37,6 +37,20 @@ READ_SCHEMA = {
         },
     },
     "required": ["answer", "claims"],
+}
+
+SYSTEM_MERGE = (
+    "Combine partial answers into one answer to the question. You may only rely on the listed "
+    'claims. Reply with JSON only: {"answer": string, "claim_ids": [string]}.'
+)
+
+MERGE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "string"},
+        "claim_ids": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["answer", "claim_ids"],
 }
 
 Files = dict[str, tuple[int, list[str]]]
@@ -187,6 +201,69 @@ def _valid_read(data: dict) -> bool:
     return isinstance(data.get("answer"), str) and isinstance(data.get("claims"), list)
 
 
+def _line_chars(n: int, line: str) -> int:
+    return len(f"{n:>5}| {line}") + 1
+
+
+def chunk_files(files: Files, chunk_tokens: int) -> list[Files]:
+    """Pack files (sorted by path) into chunks of at most chunk_tokens, as rendered.
+
+    A file too big for one chunk is split on line boundaries and each piece keeps its true
+    starting line number. A single line bigger than a chunk gets a chunk of its own; the
+    caller's per-chunk budget check rejects it.
+    """
+    limit = chunk_tokens * 4
+    chunks: list[Files] = []
+    chunk: Files = {}
+    used = 0
+    for path, (first, lines) in sorted(files.items()):
+        header = len(f"=== FILE {path} ===\n")
+        if not lines:
+            chunk[path] = (first, [])
+            used += header
+            continue
+        start, piece = first, []
+        for n, line in enumerate(lines, first):
+            cost = _line_chars(n, line) + (0 if piece else header)
+            if (chunk or piece) and used + cost > limit:
+                if piece:
+                    chunk[path] = (start, piece)
+                chunks.append(chunk)
+                chunk, used, piece = {}, 0, []
+                cost = _line_chars(n, line) + header
+            if not piece:
+                start = n
+            piece.append(line)
+            used += cost
+        chunk[path] = (start, piece)
+    if chunk:
+        chunks.append(chunk)
+    return chunks
+
+
+def _read_prompt(chunk: Files, question: str) -> str:
+    return f"{_render(chunk)}\nQUESTION: {question}"
+
+
+def _valid_merge(data: dict) -> bool:
+    ids = data.get("claim_ids")
+    return (
+        isinstance(data.get("answer"), str)
+        and isinstance(ids, list)
+        and all(isinstance(i, str) for i in ids)
+    )
+
+
+def _merge_prompt(question: str, answers: list[str], claims: dict[str, Claim]) -> str:
+    partials = "\n".join(f"{i}. {a}" for i, a in enumerate(answers, 1))
+    listed = "\n".join(f"{cid}: {c.text} ({c.file}:{c.line})" for cid, c in claims.items())
+    return f"QUESTION: {question}\n\nPARTIAL ANSWERS:\n{partials}\n\nCLAIMS:\n{listed}"
+
+
+def _claim_report(claims: list[Claim]) -> list[dict]:
+    return [{"text": c.text, "file": c.file, "line": c.line} for c in claims]
+
+
 async def flint_read_impl(
     cfg: Config,
     paths: list[str],
@@ -197,6 +274,9 @@ async def flint_read_impl(
 ) -> dict:
     """Read files through Flint and return only claims that were verified against the source.
 
+    Files are split into chunks; each chunk is read on its own (map) and, when there is more
+    than one, the verified claims are combined by a merge step that may only pick among them.
+
     `ready` runs after every check that needs no model (so a bad request never starts Flint)
     and just before the first model call; an error dict it returns is handed straight back.
     """
@@ -205,29 +285,60 @@ async def flint_read_impl(
         files = _load_files(paths)
     except PathError as e:
         return e.result
-    body = _render(files)
-    tokens = est_tokens(body)
-    if tokens > cfg.chunk_tokens:
-        return _over_budget(tokens, cfg.chunk_tokens)
-    user = f"{body}\nQUESTION: {question}"
-    prompt_tokens = est_tokens(SYSTEM_READ + user)
-    if not fits(prompt_tokens, READ_MAX_TOKENS, cfg):
-        return _over_budget(prompt_tokens, cfg.ctx - 512 - READ_MAX_TOKENS)
+    if not files:
+        return {"error": "no_files"}
+    chunks = chunk_files(files, cfg.chunk_tokens)
+    if len(chunks) > cfg.max_chunks:
+        return _over_budget(est_tokens(_render(files)), cfg.chunk_tokens * cfg.max_chunks)
+    prompts = []
+    for chunk in chunks:
+        tokens = est_tokens(_render(chunk))
+        if tokens > cfg.chunk_tokens:  # a single line bigger than a chunk
+            return _over_budget(tokens, cfg.chunk_tokens)
+        prompt = _read_prompt(chunk, question)
+        prompt_tokens = est_tokens(SYSTEM_READ + prompt)
+        if not fits(prompt_tokens, READ_MAX_TOKENS, cfg):
+            return _over_budget(prompt_tokens, cfg.ctx - HEADROOM - READ_MAX_TOKENS)
+        prompts.append(prompt)
     if ready is not None and (err := await ready()) is not None:
         return err
-    data = await _complete_json(
-        cfg, SYSTEM_READ, user, READ_SCHEMA, READ_MAX_TOKENS, usage, _valid_read
-    )
-    if data is None:
-        return {"error": "unverifiable_output"}
-    claims, malformed = parse_claims(data["claims"])
-    verified, unverified = filter_claims(claims, files)
-    stripped = malformed + unverified
+
+    answers: list[str] = []
+    claims: dict[str, Claim] = {}
+    stripped = 0
+    for chunk, prompt in zip(chunks, prompts, strict=True):
+        data = await _complete_json(
+            cfg, SYSTEM_READ, prompt, READ_SCHEMA, READ_MAX_TOKENS, usage, _valid_read
+        )
+        if data is None:
+            return {"error": "unverifiable_output"}
+        parsed, malformed = parse_claims(data["claims"])
+        verified, unverified = filter_claims(parsed, chunk)
+        stripped += malformed + unverified
+        answers.append(data["answer"])
+        claims.update({f"c{len(claims) + i}": c for i, c in enumerate(verified, 1)})
+
+    if len(chunks) == 1:
+        answer, chosen = answers[0], list(claims.values())
+    else:
+        merge_prompt = _merge_prompt(question, answers, claims)
+        merge_tokens = est_tokens(SYSTEM_MERGE + merge_prompt)
+        if not fits(merge_tokens, READ_MAX_TOKENS, cfg):
+            return _over_budget(merge_tokens, cfg.ctx - HEADROOM - READ_MAX_TOKENS)
+        merged = await _complete_json(
+            cfg, SYSTEM_MERGE, merge_prompt, MERGE_SCHEMA, READ_MAX_TOKENS, usage, _valid_merge
+        )
+        if merged is None:
+            return {"error": "unverifiable_output"}
+        answer = merged["answer"]
+        picked = dict.fromkeys(i for i in merged["claim_ids"] if i in claims)
+        chosen = [claims[i] for i in picked]
+
     out = {
-        "answer": data["answer"],
-        "claims": [{"text": c.text, "file": c.file, "line": c.line} for c in verified],
+        "answer": answer,
+        "claims": _claim_report(chosen),
         "stripped": stripped,
-        "chunks": 1,
+        "chunks": len(chunks),
     }
     if stripped:
         out["answer_confidence"] = "degraded"
