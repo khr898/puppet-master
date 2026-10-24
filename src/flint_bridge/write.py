@@ -9,7 +9,7 @@ from pathlib import Path
 from flint_bridge import attempts, staging
 from flint_bridge.budget import HEADROOM, fits
 from flint_bridge.config import Config
-from flint_bridge.gitops import stage_and_check, toplevel
+from flint_bridge.gitops import GitError, run_git, stage_and_check, toplevel
 from flint_bridge.read import Usage, _complete_json, _norm
 from flint_bridge.report import est_tokens
 
@@ -197,3 +197,62 @@ async def flint_write_impl(
         "notes": data["notes"][:NOTES_CHARS],
         "check": _short_check(check),
     }
+
+
+def _staged(root: Path, patch_id: str) -> tuple[dict | None, dict | None]:
+    """(metadata, None) for a known staged patch, else (None, error dict)."""
+    if not root.is_absolute():
+        return None, {"error": "relative_path", "path": str(root)}
+    if not staging.valid_id(patch_id):
+        return None, {"error": "invalid_patch_id"}
+    meta = staging.load_meta(root, patch_id)
+    if meta is None:
+        return None, {"error": "unknown_patch"}
+    return meta, None
+
+
+def flint_apply_impl(root: Path, patch_id: str) -> dict:
+    """Apply a staged patch to the working tree, but only if its check passed and it is unchanged.
+
+    This is the only place a Flint change reaches the tree. Every refusal leaves the tree alone.
+    """
+    meta, err = _staged(root, patch_id)
+    if err:
+        return err
+    if meta.get("applied"):
+        return {"error": "already_applied"}
+    if not (meta.get("check") or {}).get("passed"):
+        return {"error": "check_failed"}
+    try:
+        patch_bytes = staging.patch_file(root, patch_id).read_bytes()
+    except OSError:
+        return {"error": "unknown_patch"}
+    if hashlib.sha256(patch_bytes).hexdigest() != meta.get("sha256"):
+        return {"error": "patch_modified"}
+    # The bytes that were hashed are the bytes handed to git, so the file can't change in between.
+    patch = patch_bytes.decode("utf-8")
+    try:
+        run_git(root, "apply", "--check", "--whitespace=nowarn", input=patch)
+        run_git(root, "apply", "--whitespace=nowarn", input=patch)
+    except GitError as e:
+        return {"error": "does_not_apply", "detail": str(e)[:300]}
+    staging.save_meta(root, patch_id, {**meta, "applied": True})
+    attempts.reset(root, meta.get("task_key", ""))
+    return {"applied": True, "files": meta.get("files", [])}
+
+
+def flint_reject_impl(root: Path, patch_id: str, reason: str) -> dict:
+    """Discard a staged patch after review. A patch that passed its check counts as a failed try.
+
+    One that failed its check was already counted when it was written, so it is not counted twice.
+    """
+    meta, err = _staged(root, patch_id)
+    if err:
+        return err
+    if meta.get("applied"):
+        return {"error": "already_applied"}
+    if (meta.get("check") or {}).get("passed"):
+        attempts.record(root, meta.get("task_key", ""), passed=False)
+    for path in (staging.patch_file(root, patch_id), staging.meta_file(root, patch_id)):
+        path.unlink(missing_ok=True)
+    return {"rejected": True}

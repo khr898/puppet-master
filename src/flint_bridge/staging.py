@@ -1,3 +1,5 @@
+import json
+import os
 import re
 from pathlib import Path
 
@@ -44,3 +46,21 @@ def check_staged_patch(cfg: Config, root: Path, patch_id: str, name: str) -> dic
             return run_check(cfg, tmp, name)
     except GitError as e:
         return {"error": "git_error", "detail": str(e)[:300]}
+
+
+def load_meta(root: Path, patch_id: str) -> dict | None:
+    """The staged patch's metadata, or None if the id is malformed, missing, or unreadable."""
+    if not valid_id(patch_id):
+        return None
+    try:
+        meta = json.loads(meta_file(root, patch_id).read_text())
+    except (OSError, ValueError):
+        return None
+    return meta if isinstance(meta, dict) else None
+
+
+def save_meta(root: Path, patch_id: str, meta: dict) -> None:
+    path = meta_file(root, patch_id)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(meta))
+    os.replace(tmp, path)

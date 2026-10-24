@@ -246,6 +246,43 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
     )
 
 
+def _staged_task_key(root: Path, patch_id: str) -> str | None:
+    meta = staging.load_meta(root, patch_id) if root.is_absolute() else None
+    return meta.get("task_key") if meta else None
+
+
+@mcp.tool(
+    description="Apply a staged Flint patch to the working tree. Only call after you have read "
+    "the patch file yourself and agree with it. Refuses if checks failed or the patch was "
+    "modified."
+)
+async def flint_apply(root: str, patch_id: str) -> dict:
+    started = time.perf_counter()
+    root_path = Path(root)
+    key = _staged_task_key(root_path, patch_id)
+    result = await asyncio.to_thread(write.flint_apply_impl, root_path, patch_id)
+    outcome = "applied" if result.get("applied") else None
+    return _report("flint_apply", result, started, root_path, outcome=outcome, task_key=key)
+
+
+@mcp.tool(description="Reject a staged patch after review; counts as a failed attempt.")
+async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
+    started = time.perf_counter()
+    root_path = Path(root)
+    key = _staged_task_key(root_path, patch_id)
+    result = await asyncio.to_thread(write.flint_reject_impl, root_path, patch_id, reason)
+    outcome = "rejected" if result.get("rejected") else None
+    return _report(
+        "flint_reject",
+        result,
+        started,
+        root_path,
+        outcome=outcome,
+        task_key=key,
+        reason=reason[:200],
+    )
+
+
 @mcp.tool(
     description="Run an allow-listed check (names from flint.toml, e.g. 'test', 'lint') and get "
     "only the failures. With patch_id, runs against that staged patch in an isolated worktree."

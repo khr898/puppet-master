@@ -74,7 +74,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 ### Phase 3: Checks, staged writes, apply
 - [x] T7: Git helpers and `flint_check` (allow-list, failure extraction)
 - [x] T8: Worktree sandbox: baseline, symlinks, run the check
-- [ ] T9: `flint_write` (budget, generation, staged patch, auto-check)
+- [x] T9: `flint_write` (budget, generation, staged patch, auto-check)
 - [ ] T10: `flint_apply` and attempt tracking / miss
 
 ### Checkpoint C: writes are safe
