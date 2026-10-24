@@ -15,3 +15,25 @@ def toplevel(path: Path) -> Path | None:
         return None
     out = run.stdout.strip()
     return Path(out) if run.returncode == 0 and out else None
+
+
+class GitError(Exception):
+    """A git command exited non-zero or could not run."""
+
+
+def run_git(root: Path, *args: str, input: str | None = None, timeout: int = 60) -> str:
+    """Run `git <args>` in root and return stdout. Raises GitError on failure."""
+    try:
+        run = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            input=input,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GitError(f"git {args[0] if args else ''}: {e}") from e
+    if run.returncode != 0:
+        raise GitError(run.stderr.strip() or run.stdout.strip() or f"git exit {run.returncode}")
+    return run.stdout

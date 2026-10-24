@@ -8,7 +8,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import gitops, lifecycle, llm, read
+from flint_bridge import check, gitops, lifecycle, llm, read
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -78,9 +78,17 @@ async def ensure_up(cfg: Config) -> dict | None:
 _OUTCOME_BY_ERROR = {"flint_offline": "offline", "over_budget": "over_budget"}
 
 
-def _report(tool: str, result: dict, started: float, root: Path | None = None, **fields) -> dict:
+def _report(
+    tool: str,
+    result: dict,
+    started: float,
+    root: Path | None = None,
+    outcome: str | None = None,
+    **fields,
+) -> dict:
     result = cap(result)
-    outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
+    if outcome is None:
+        outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
     try:
         log_call(
             root,
@@ -200,6 +208,26 @@ async def flint_read(paths: list[str], question: str) -> dict:
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,
     )
+
+
+@mcp.tool(
+    description="Run an allow-listed check (names from flint.toml, e.g. 'test', 'lint') and get "
+    "only the failures. With patch_id, runs against that staged patch in an isolated worktree."
+)
+async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
+    started = time.perf_counter()
+    root_path = Path(root)
+    if not root_path.is_absolute():
+        return _report("flint_check", {"error": "relative_path", "path": root}, started)
+    cfg = load_config(root_path)
+    if patch_id is not None:
+        result = {"error": "not_implemented"}
+    else:
+        result = await asyncio.to_thread(check.run_check, cfg, root_path, cmd)
+    outcome = None
+    if "passed" in result:
+        outcome = "ok" if result["passed"] else "check_failed"
+    return _report("flint_check", result, started, root_path, outcome=outcome)
 
 
 def main() -> None:
