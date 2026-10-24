@@ -80,7 +80,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 ### Checkpoint C: writes are safe
 
 ### Phase 4: Finish
-- [ ] T11: `flint_ask` and the `flint-stats` CLI
+- [x] T11: `flint_ask` and the `flint-stats` CLI
 - [ ] T11b: Sample capture (keeps fine-tuning possible) and the reasoning reserve
 - [ ] T12: Final tool descriptions, this project's `CLAUDE.md`, live smoke tests
 - [ ] T13: `flint-eval` bake-off harness (Flint UD-IQ2_XXS vs Gemma 4 12B Q4; ADR 0001)

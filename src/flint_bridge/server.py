@@ -8,7 +8,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import check, gitops, lifecycle, llm, read, staging, write
+from flint_bridge import ask, check, gitops, lifecycle, llm, read, staging, write
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -301,6 +301,31 @@ async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     if "passed" in result:
         outcome = "ok" if result["passed"] else "check_failed"
     return _report("flint_check", result, started, root_path, outcome=outcome)
+
+
+@mcp.tool(
+    description="Drafts and prose only (docs, emails, commit messages, rewrites, explanations of "
+    "text you provide). Output is UNVERIFIED. For any question about code or files, use "
+    "flint_read instead."
+)
+async def flint_ask(prompt: str, context: str = "") -> dict:
+    started = time.perf_counter()
+    cfg = load_config(Path.cwd())
+    usage = read.Usage()
+    try:
+        result = await ask.flint_ask_impl(
+            cfg, prompt, context, usage=usage, ready=partial(ensure_up, cfg)
+        )
+    except llm.FlintOffline:
+        result = {"error": "flint_offline"}
+    return _report(
+        "flint_ask",
+        result,
+        started,
+        flint_tokens_in=usage.tokens_in,
+        flint_tokens_out=usage.tokens_out,
+        retries=usage.retries,
+    )
 
 
 def main() -> None:
