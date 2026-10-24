@@ -8,7 +8,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import check, gitops, lifecycle, llm, read
+from flint_bridge import check, gitops, lifecycle, llm, read, staging
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -221,7 +221,7 @@ async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
         return _report("flint_check", {"error": "relative_path", "path": root}, started)
     cfg = load_config(root_path)
     if patch_id is not None:
-        result = {"error": "not_implemented"}
+        result = await asyncio.to_thread(staging.check_staged_patch, cfg, root_path, patch_id, cmd)
     else:
         result = await asyncio.to_thread(check.run_check, cfg, root_path, cmd)
     outcome = None
