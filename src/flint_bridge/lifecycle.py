@@ -9,9 +9,8 @@ import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-from flint_bridge import llm
+from flint_bridge import llm, sysinfo
 from flint_bridge.config import Config
-from flint_bridge.sysinfo import mem_pressure
 
 CACHE_TYPES = ("f16", "q8_0", "q4_0")
 _KV_GB_16K = {"f16": 1.0, "q8_0": 0.5, "q4_0": 0.25}  # per K or V tensor at 16K context
@@ -87,17 +86,8 @@ def build_argv(sc: ServerConfig) -> list[str]:
 
 
 def free_gb() -> float | None:
-    """Free memory in GB: memory_pressure's free% of hw.memsize. None if unavailable."""
-    used = mem_pressure()
-    if used is None:
-        return None
-    try:
-        out = subprocess.run(
-            ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=5, check=True
-        )
-        return int(out.stdout) * (100 - used) / 100 / 1e9
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return None
+    """Memory the OS can hand out without swapping, in GB. None if unavailable."""
+    return sysinfo.available_gb()
 
 
 def preflight(sc: ServerConfig) -> dict | None:
