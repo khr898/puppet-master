@@ -1,0 +1,6 @@
+[check]
+default = "test"
+
+[check.commands]
+test = ["uv", "run", "pytest", "-q", "-x"]
+lint = ["uv", "run", "ruff", "check", "."]

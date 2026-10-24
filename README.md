@@ -30,3 +30,24 @@ Flint itself is set up once by following [docs/setup/flint-server.md](docs/setup
 ```bash
 claude mcp add flint-engine -- uv --directory /path/to/puppet-master run flint-bridge
 ```
+
+## Using it and running the trial
+
+Once registered, Claude sees the Flint tools in every session. Copy the `## Flint delegation`
+section of [CLAUDE.md](CLAUDE.md) (template: [docs/spec/claude-md-snippet.md](docs/spec/claude-md-snippet.md))
+into the `CLAUDE.md` of each project that should use Flint, and add a `flint.toml` with that
+project's check commands (this repo's own is an example).
+
+Every tool call is logged to `.flint/log.jsonl` in the project. Read the log with:
+
+```bash
+UV_CACHE_DIR=.uv-cache uv run flint-stats --since 7d
+```
+
+It prints calls per tool, outcome counts, the accept rate (`applied` over `applied`, `rejected`,
+`miss` and `check_failed`), average report size, Flint tokens in and out, average duration and
+average reasoning tokens. For the one-week trial, use Claude as usual for a week and compare how
+often you hit your usage limit with a normal week, alongside the accept rate and the misses.
+
+Smoke-test the real model with `uv run pytest -m live`; it skips itself when llama-server is down.
+Local training samples (`.flint/samples/`) can be switched off with `[log] samples = false`.
