@@ -57,12 +57,12 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 ## Task List (details in todo.md)
 
 ### Phase 1: Foundation and round trip
-- [ ] T1: Project scaffold, config, git init
-- [ ] T2: Report cap, token estimate, call log
-- [ ] T3: LLM client (JSON-schema grammar, `cache_prompt`), `flint_status`, server instructions, MCP round trip
-- [ ] T3b: Server lifecycle: `flint_server`, memory preflight, autostart, idle stop
+- [x] T1: Project scaffold, config, git init
+- [x] T2: Report cap, token estimate, call log
+- [x] T3: LLM client (JSON-schema grammar, `cache_prompt`), `flint_status`, server instructions, MCP round trip
+- [x] T3b: Server lifecycle: `flint_server`, memory preflight, autostart, idle stop
 
-### Checkpoint A: the bridge is reachable from Claude Desktop
+### Checkpoint A: the bridge is reachable from Claude Desktop (passed 2026-10-24)
 
 ### Phase 2: Verified reads (highest-risk guardrail)
 - [ ] T4: Line numbering and claim verification, with adversarial fixtures
