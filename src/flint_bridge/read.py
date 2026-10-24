@@ -1,6 +1,6 @@
 import json
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flint_bridge.budget import HEADROOM, PathError, expand, fits
 from flint_bridge.config import Config
@@ -133,6 +133,9 @@ class Usage:
     tokens_in: int = 0
     tokens_out: int = 0
     retries: int = 0
+    reasoning_tokens: int = 0
+    # (system, user, raw output) of every model call, for sample capture
+    calls: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 async def _complete_json(
@@ -152,6 +155,8 @@ async def _complete_json(
         reply = await complete(cfg, system, prompt, max_tokens=max_tokens, schema=schema)
         usage.tokens_in += reply.tokens_in
         usage.tokens_out += reply.tokens_out
+        usage.reasoning_tokens += reply.reasoning_tokens
+        usage.calls.append((system, prompt, reply.text))
         try:
             data = json.loads(reply.text)
         except ValueError:
@@ -287,18 +292,19 @@ async def flint_read_impl(
         return e.result
     if not files:
         return {"error": "no_files"}
-    chunks = chunk_files(files, cfg.chunk_tokens)
+    chunks = chunk_files(files, cfg.effective_chunk_tokens)
+    max_out = READ_MAX_TOKENS + cfg.reasoning_reserve
     if len(chunks) > cfg.max_chunks:
-        return _over_budget(est_tokens(_render(files)), cfg.chunk_tokens * cfg.max_chunks)
+        return _over_budget(est_tokens(_render(files)), cfg.effective_chunk_tokens * cfg.max_chunks)
     prompts = []
     for chunk in chunks:
         tokens = est_tokens(_render(chunk))
-        if tokens > cfg.chunk_tokens:  # a single line bigger than a chunk
-            return _over_budget(tokens, cfg.chunk_tokens)
+        if tokens > cfg.effective_chunk_tokens:  # a single line bigger than a chunk
+            return _over_budget(tokens, cfg.effective_chunk_tokens)
         prompt = _read_prompt(chunk, question)
         prompt_tokens = est_tokens(SYSTEM_READ + prompt)
-        if not fits(prompt_tokens, READ_MAX_TOKENS, cfg):
-            return _over_budget(prompt_tokens, cfg.ctx - HEADROOM - READ_MAX_TOKENS)
+        if not fits(prompt_tokens, max_out, cfg):
+            return _over_budget(prompt_tokens, cfg.ctx - HEADROOM - max_out)
         prompts.append(prompt)
     if ready is not None and (err := await ready()) is not None:
         return err
@@ -308,7 +314,7 @@ async def flint_read_impl(
     stripped = 0
     for chunk, prompt in zip(chunks, prompts, strict=True):
         data = await _complete_json(
-            cfg, SYSTEM_READ, prompt, READ_SCHEMA, READ_MAX_TOKENS, usage, _valid_read
+            cfg, SYSTEM_READ, prompt, READ_SCHEMA, max_out, usage, _valid_read
         )
         if data is None:
             return {"error": "unverifiable_output"}
@@ -323,10 +329,10 @@ async def flint_read_impl(
     else:
         merge_prompt = _merge_prompt(question, answers, claims)
         merge_tokens = est_tokens(SYSTEM_MERGE + merge_prompt)
-        if not fits(merge_tokens, READ_MAX_TOKENS, cfg):
-            return _over_budget(merge_tokens, cfg.ctx - HEADROOM - READ_MAX_TOKENS)
+        if not fits(merge_tokens, max_out, cfg):
+            return _over_budget(merge_tokens, cfg.ctx - HEADROOM - max_out)
         merged = await _complete_json(
-            cfg, SYSTEM_MERGE, merge_prompt, MERGE_SCHEMA, READ_MAX_TOKENS, usage, _valid_merge
+            cfg, SYSTEM_MERGE, merge_prompt, MERGE_SCHEMA, max_out, usage, _valid_merge
         )
         if merged is None:
             return {"error": "unverifiable_output"}

@@ -16,6 +16,13 @@ class Config:
     check_timeout_s: int = 300
     check_default: str = "test"
     check_commands: dict[str, list[str]] = field(default_factory=dict)
+    samples: bool = True
+    reasoning_reserve: int = 0
+
+    @property
+    def effective_chunk_tokens(self) -> int:
+        """File tokens per chunk once room is kept free for the model's thinking."""
+        return self.chunk_tokens - self.reasoning_reserve
 
 
 def _validate_commands(commands: dict) -> dict[str, list[str]]:
@@ -39,9 +46,10 @@ def load_config(root: Path) -> Config:
             **{k: server[k] for k in ("base_url", "ctx") if k in server},
             **{
                 k: budget[k]
-                for k in ("chunk_tokens", "timeout_s", "check_timeout_s")
+                for k in ("chunk_tokens", "timeout_s", "check_timeout_s", "reasoning_reserve")
                 if k in budget
             },
+            **({"samples": data["log"]["samples"]} if "samples" in data.get("log", {}) else {}),
         }
         if "default" in check:
             updates["check_default"] = check["default"]

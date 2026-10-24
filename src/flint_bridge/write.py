@@ -137,7 +137,7 @@ async def flint_write_impl(
     if sum(sizes) > cfg.write_max_tokens or any(s > cfg.write_max_tokens for s in sizes):
         return _over_budget(sum(sizes), cfg.write_max_tokens)
     prompt = _write_prompt(contents, task, constraints)
-    max_out = cfg.write_max_tokens + 500
+    max_out = cfg.write_max_tokens + 500 + cfg.reasoning_reserve
     prompt_tokens = est_tokens(SYSTEM_WRITE + prompt)
     if not fits(prompt_tokens, max_out, cfg):
         return _over_budget(prompt_tokens, cfg.ctx - HEADROOM - max_out)

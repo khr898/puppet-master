@@ -22,17 +22,19 @@ async def flint_ask_impl(
     """Draft prose with Flint. The result is never verified, and says so."""
     # Context first, the request last, like the read and write prompts (KV cache reuse).
     user = f"{context}\n\n{prompt}" if context else prompt
+    max_out = ASK_MAX_TOKENS + cfg.reasoning_reserve
     tokens = est_tokens(SYSTEM_ASK) + est_tokens(user)
-    if not fits(tokens, ASK_MAX_TOKENS, cfg):
+    if not fits(tokens, max_out, cfg):
         return {
             "error": "over_budget",
             "est_tokens": tokens,
-            "limit": cfg.ctx - ASK_MAX_TOKENS,
+            "limit": cfg.ctx - max_out,
             "hint": "shorten the prompt or context",
         }
     if ready is not None and (err := await ready()) is not None:
         return err
-    reply = await complete(cfg, SYSTEM_ASK, user, max_tokens=ASK_MAX_TOKENS)
+    reply = await complete(cfg, SYSTEM_ASK, user, max_tokens=max_out)
     usage.tokens_in += reply.tokens_in
     usage.tokens_out += reply.tokens_out
+    usage.reasoning_tokens += reply.reasoning_tokens
     return {"draft": reply.text, "verified": False}

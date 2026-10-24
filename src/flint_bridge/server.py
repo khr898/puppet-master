@@ -8,7 +8,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import ask, check, gitops, lifecycle, llm, read, staging, write
+from flint_bridge import ask, check, gitops, lifecycle, llm, read, samples, staging, write
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -116,6 +116,20 @@ def _root_of(paths: list[str]) -> Path | None:
     return gitops.toplevel(folder) or folder
 
 
+def _capture(root: Path | None, cfg: Config, tool: str, usage: read.Usage, verdict: str, **extra):
+    """Save every model call of this tool call as a training sample (see samples.py)."""
+    if root is None:
+        return
+    for system, user, raw in usage.calls:
+        try:
+            samples.record(
+                root, cfg, tool=tool, system=system, user=user, raw_output=raw, verdict=verdict,
+                **extra,
+            )  # fmt: skip
+        except OSError:
+            pass  # samples are a bonus: never break a tool over them
+
+
 @mcp.tool(
     description="Health and budgets of the local Flint model. Call once per session before "
     "delegating."
@@ -198,6 +212,11 @@ async def flint_read(paths: list[str], question: str) -> dict:
         )
     except llm.FlintOffline:
         result = {"error": "flint_offline"}
+    if result.get("error") == "unverifiable_output":
+        verdict = "unverifiable"
+    else:
+        verdict = f"stripped:{result['stripped']}" if result.get("stripped") else "verified"
+    _capture(root, cfg, "flint_read", usage, verdict)
     return _report(
         "flint_read",
         result,
@@ -207,6 +226,7 @@ async def flint_read(paths: list[str], question: str) -> dict:
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,
+        reasoning_tokens=usage.reasoning_tokens,
     )
 
 
@@ -233,6 +253,10 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
         outcome = "miss"
     elif "patch_id" in result:
         outcome = "staged" if result["check"]["passed"] else "check_failed"
+    if outcome in ("staged", "check_failed"):
+        _capture(root, cfg, "flint_write", usage, outcome, patch_id=result["patch_id"])
+    elif result.get("error") == "unverifiable_output":
+        _capture(root, cfg, "flint_write", usage, "unverifiable")
     return _report(
         "flint_write",
         result,
@@ -243,12 +267,20 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,
+        reasoning_tokens=usage.reasoning_tokens,
     )
 
 
 def _staged_task_key(root: Path, patch_id: str) -> str | None:
     meta = staging.load_meta(root, patch_id) if root.is_absolute() else None
     return meta.get("task_key") if meta else None
+
+
+def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
+    try:
+        samples.record(root, load_config(root), tool=tool, verdict=verdict, patch_id=patch_id)
+    except OSError:
+        pass
 
 
 @mcp.tool(
@@ -262,6 +294,8 @@ async def flint_apply(root: str, patch_id: str) -> dict:
     key = _staged_task_key(root_path, patch_id)
     result = await asyncio.to_thread(write.flint_apply_impl, root_path, patch_id)
     outcome = "applied" if result.get("applied") else None
+    if outcome:
+        _record_verdict(root_path, "flint_apply", patch_id, "applied")
     return _report("flint_apply", result, started, root_path, outcome=outcome, task_key=key)
 
 
@@ -272,6 +306,8 @@ async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
     key = _staged_task_key(root_path, patch_id)
     result = await asyncio.to_thread(write.flint_reject_impl, root_path, patch_id, reason)
     outcome = "rejected" if result.get("rejected") else None
+    if outcome:
+        _record_verdict(root_path, "flint_reject", patch_id, "rejected")
     return _report(
         "flint_reject",
         result,
@@ -325,6 +361,7 @@ async def flint_ask(prompt: str, context: str = "") -> dict:
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,
+        reasoning_tokens=usage.reasoning_tokens,
     )
 
 

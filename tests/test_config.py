@@ -64,3 +64,20 @@ def test_rejects_non_string_items(tmp_path: Path):
     (tmp_path / "flint.toml").write_text('[check.commands]\ntest = ["pytest", 1]\n')
     with pytest.raises(ValueError):
         load_config(tmp_path)
+
+
+def test_sample_capture_and_reasoning_reserve_default_to_on_and_zero(tmp_path: Path):
+    cfg = load_config(tmp_path)
+    assert cfg.samples is True
+    assert cfg.reasoning_reserve == 0
+    assert cfg.effective_chunk_tokens == cfg.chunk_tokens
+
+
+def test_parses_samples_and_reasoning_reserve(tmp_path: Path):
+    (tmp_path / "flint.toml").write_text(
+        "[log]\nsamples = false\n[budget]\nreasoning_reserve = 3000\n"
+    )
+    cfg = load_config(tmp_path)
+    assert cfg.samples is False
+    assert cfg.reasoning_reserve == 3000
+    assert cfg.effective_chunk_tokens == 7000

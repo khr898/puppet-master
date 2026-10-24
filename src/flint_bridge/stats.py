@@ -48,6 +48,9 @@ def summarize(rows: list[dict]) -> dict:
         "tokens_in": int(sum(values("flint_tokens_in"))),
         "tokens_out": int(sum(values("flint_tokens_out"))),
         "avg_duration_ms": {t: _avg(values("duration_ms", t)) for t in tools},
+        "avg_reasoning_tokens": {
+            t: avg for t in tools if (avg := _avg(values("reasoning_tokens", t))) is not None
+        },
     }
 
 
@@ -66,6 +69,9 @@ def render(summary: dict) -> str:
     lines.append(f"Flint tokens: {summary['tokens_in']} in, {summary['tokens_out']} out")
     lines.append("Average duration per tool (ms):")
     lines += [f"  {tool}: {_fmt(ms)}" for tool, ms in summary["avg_duration_ms"].items()]
+    if summary["avg_reasoning_tokens"]:
+        lines.append("Average reasoning tokens per tool:")
+        lines += [f"  {tool}: {_fmt(n)}" for tool, n in summary["avg_reasoning_tokens"].items()]
     return "\n".join(lines)
 
 
