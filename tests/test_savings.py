@@ -8,7 +8,7 @@ from test_eval import EVALS, URL, flint_up, model  # noqa: F401  (flint_up is an
 from flint_bridge import eval as flint_eval
 from flint_bridge import savings, server
 from flint_bridge.config import Config
-from flint_bridge.report import est_tokens
+from flint_bridge.report import compact, est_tokens, factor_base
 
 BIG_FILE = "x = 1\n" * 2000  # ~3000 tokens
 
@@ -29,7 +29,7 @@ def test_a_read_saves_the_file_tokens_minus_the_report_and_the_cited_lines(tmp_p
     result = read_result(str(f))
     s = savings.read_savings([f], result, ok=True)
     assert s["baseline"] == est_tokens(BIG_FILE)
-    assert s["with_flint"] == est_tokens(json.dumps(result)) + s["verify"]
+    assert s["with_flint"] == est_tokens(compact(factor_base(result))) + s["verify"]
     assert s["verify"] > 0
     assert s["saved"] == s["baseline"] - s["with_flint"] > 0
 

@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from flint_bridge.report import est_tokens
+from flint_bridge.report import compact, est_tokens, factor_base
 
 # An output token costs more than an input token. 5x is a round figure for the price ratio.
 OUT_WEIGHT = 5
@@ -51,7 +51,7 @@ def _row(baseline: int, with_flint: int, **extra) -> dict:
 def read_savings(specs: list, result: dict, *, ok: bool) -> dict:
     """Without Flint Claude reads the files; with it, the report and the lines it cites."""
     baseline = sum(est_tokens(_text(s)) for s in specs)
-    report = est_tokens(json.dumps(result))
+    report = est_tokens(compact(factor_base(result)))  # as it reaches Claude
     verify = verify_tokens(result)
     return _row(baseline, report + verify + (0 if ok else baseline), verify=verify)
 
@@ -66,7 +66,7 @@ def write_savings(texts: list[str], patch: str | None, result: dict, *, passed: 
     """Without Flint Claude reads the files and writes the change; with it, reads the patch."""
     out = added_tokens(patch)
     baseline = sum(est_tokens(t) for t in texts) + OUT_WEIGHT * out
-    with_flint = est_tokens(patch or "") + est_tokens(json.dumps(result))
+    with_flint = est_tokens(patch or "") + est_tokens(compact(result))
     return _row(baseline, with_flint + (0 if passed else baseline), baseline_out=out)
 
 
