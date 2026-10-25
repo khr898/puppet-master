@@ -626,3 +626,37 @@ the net tokens saved since the server started, so the stop is also the session's
 
 **Files:** `server.py`, `CLAUDE.md`, `docs/spec/claude-md-snippet.md`, `tests/test_descriptions.py`,
 `tests/test_flint_server.py` · **Size:** S
+
+---
+
+# Phase 6: Read accuracy and any local model
+
+Benchmark of 2026-10-25 (`phase5-compact`): read answer-correct fell to 65% (75% in
+`focus-regions`, 80% in `flint-iq2xxs`). Probing the failing tasks showed two causes:
+- Flint answers by reference ("the keys listed in PROTECTED", "the values in the DECIDED
+  tuple"): the facts sit only in the claim quote, which the report drops, so Claude gets an answer
+  it has to look up anyway.
+- `temperature 0.2` makes runs disagree: `decided-outcomes` failed in the benchmark and passed
+  in the probe right after, on the same file.
+
+## T18: Concrete answers and deterministic sampling
+
+**Do:** SYSTEM_READ and SYSTEM_MERGE require the answer to state names, values and numbers
+themselves, never refer to them by identifier only. `[server] temperature` in flint.toml,
+default 0. Eval results keep each read's `answer` so failures can be diagnosed.
+
+**Acceptance:**
+- [ ] The prompt test requires the wording; the request payload uses the configured temperature.
+- [ ] Live: re-run the read tasks and record answer-correct.
+
+## T19: Any OpenAI-compatible local server
+
+**Do:** `[server] model` in flint.toml (default `flint`, the llama-server alias) is the model id
+sent with every request, so Ollama, LM Studio, mlx_lm.server or vLLM can be used by setting
+`base_url` and `model`. Health falls back from `/health` to `/v1/models` (served by all of them);
+`ctx` comes from `/props` when present, else flint.toml. Without `~/.flint/server.toml` the bridge
+just uses the running server and `flint_server` says it is not managed. Docs list each server's
+settings.
+
+**Acceptance:**
+- [ ] Tests: model id in payload; health via `/v1/models` when `/health` is 404; status reports the model.
