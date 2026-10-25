@@ -94,8 +94,9 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 - [x] T17: Lifecycle guidance: stop Flint when the delegated work is done, never start it by hand
 
 ### Phase 6: Read accuracy and any local model (2026-10-25)
-- [ ] T18: Read answers state the concrete values; deterministic sampling; eval keeps the answers
-- [ ] T19: Any OpenAI-compatible local server (Ollama, LM Studio, mlx_lm, llama-server) via `[server] model`
+- [x] T18: Read answers state the concrete values; deterministic sampling; eval keeps the answers
+- [x] T19: Any OpenAI-compatible local server (Ollama, LM Studio, mlx_lm, llama-server) via `[server] model`
+- [x] T20: Idle stop counts use from every bridge process, not just its own
 
 ## Risks and Mitigations
 

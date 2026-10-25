@@ -108,6 +108,10 @@ def preflight(sc: ServerConfig) -> dict | None:
 # ---- process bookkeeping -----------------------------------------------------------------
 
 
+def _stamp() -> Path:
+    return _flint_dir() / "last_used"
+
+
 def _pidfile() -> Path:
     return _flint_dir() / "server.pid"
 
@@ -242,24 +246,43 @@ def stop(sc: ServerConfig) -> dict:
 
 
 class IdleWatcher:
-    """Stops a managed server after sc.idle_stop_min with no tool calls."""
+    """Stops a managed server after sc.idle_stop_min with no tool calls from any bridge.
 
-    def __init__(self, clock=time.monotonic):
+    Every Claude session runs its own bridge, and they share one server. Each use is stamped
+    in ~/.flint/last_used, so a session that has gone quiet never stops a server another
+    session (or flint-eval) is still using.
+    """
+
+    def __init__(self, clock=time.time):
         self._clock = clock
         self._last = clock()
-        self._stopped = False
+        self._stopped_at: float | None = None
 
     def touch(self) -> None:
         self._last = self._clock()
-        self._stopped = False
+        self._stopped_at = None
+        try:
+            _stamp().parent.mkdir(parents=True, exist_ok=True)
+            _stamp().write_text(repr(self._last))
+        except OSError:
+            pass  # without the stamp, only this process's own use counts
+
+    def _shared_last(self) -> float:
+        try:
+            return float(_stamp().read_text())
+        except (OSError, ValueError):
+            return 0.0
 
     def check(self, sc: ServerConfig) -> bool:
-        if self._stopped or self._clock() - self._last <= sc.idle_stop_min * 60:
+        shared = self._shared_last()
+        if self._stopped_at is not None and shared <= self._stopped_at:
+            return False  # already stopped, and nobody has used it since
+        if self._clock() - max(self._last, shared) <= sc.idle_stop_min * 60:
             return False
         if not managed(sc):
             return False
         stop(sc)
-        self._stopped = True
+        self._stopped_at = self._clock()
         return True
 
     async def run(self, sc: ServerConfig, interval: float = 60.0) -> None:

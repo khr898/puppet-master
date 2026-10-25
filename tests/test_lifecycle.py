@@ -338,3 +338,27 @@ def test_idle_watcher_never_stops_an_unmanaged_server(sc, stops, monkeypatch):
     clock.now = 10_000
     assert watcher.check(sc) is False
     assert stops == []
+
+
+def test_idle_watcher_counts_use_from_another_bridge_process(sc, stops):
+    """Each Claude session runs its own bridge; an idle one must not stop a server in use."""
+    clock = Clock()
+    idle_session, busy_session = IdleWatcher(clock), IdleWatcher(clock)
+    clock.now = 14 * 60
+    busy_session.touch()
+    clock.now = 20 * 60
+    assert idle_session.check(sc) is False
+    clock.now = 30 * 60
+    assert idle_session.check(sc) is True
+
+
+def test_idle_watcher_rearms_when_another_process_uses_the_server(sc, stops):
+    clock = Clock()
+    a, b = IdleWatcher(clock), IdleWatcher(clock)
+    clock.now = 16 * 60
+    assert a.check(sc) is True
+    clock.now = 17 * 60
+    b.touch()  # another session autostarts Flint again
+    clock.now = 33 * 60
+    assert a.check(sc) is True
+    assert len(stops) == 2
