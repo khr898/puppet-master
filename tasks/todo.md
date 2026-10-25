@@ -559,3 +559,70 @@ Record the winner in ADR 0001's status.
 - [ ] The bake-off has been run by the user and the winner recorded in ADR 0001.
 - [ ] SPEC Success Criteria 1–5 are met. Number 1 and the live tests need the user's Flint running, so ask the user to run `uv run pytest -m live` and confirm the tools in the Code tab.
 - [ ] Hand off the one-week trial (Success Criterion 6) to the user. Nothing more to build.
+
+---
+
+# Phase 5: Measured savings and leaner reports
+
+Goal (2026-10-25): spend fewer Claude tokens per Flint call, measure the savings on real calls
+instead of only the eval tasks, and make sure Claude stops Flint when it is done.
+
+All token figures are `est_tokens` (chars/4). *Avoided* is what Claude would have spent doing
+the job itself; *cost* is what the delegation cost Claude: the arguments it wrote (output) plus the
+report and anything it must read to check it (input). Net savings = Σavoided over delegations that
+delivered − Σcost over every Flint call, so failed delegations count against Flint.
+
+## T14: Compact reports on the wire
+
+**Do:** FastMCP sends a returned dict as `indent=2` JSON. Register the tools so the text Claude
+receives is compact JSON (`separators=(",", ":")`, `ensure_ascii=False`) and has no duplicate
+structured content. In `flint_read` reports, when every claim's file shares a folder, report it
+once as `base` and give each claim's `file` relative to it. `report_tokens` measures that wire text.
+
+**Acceptance:**
+- [ ] Calling a tool through `mcp.call_tool` returns one text block of compact JSON.
+- [ ] A read report with two claims in one folder carries `base` and relative `file`s.
+- [ ] The tool functions still return dicts (existing tests unchanged).
+
+**Files:** `server.py`, `tests/test_wire.py`, `README.md` · **Size:** S
+
+## T15: Per-call cost and avoided tokens in the log
+
+**Do:** every logged call gets `cost_in` (report + lines Claude reads to check it) and `cost_out`
+(the arguments Claude wrote). Delivered work also gets `avoided_in` / `avoided_out`:
+- `flint_read` ok: avoided_in = tokens of the file text Flint actually saw (focused reads count
+  only the shown blocks, so a broad glob isn't credited as if Claude would read all of it).
+  cost_in adds the cited lines (±2) Claude reads to verify.
+- `flint_write` staged: cost_in adds the patch Claude must read. The editable text and the added
+  lines are saved in the staging meta, and credited as avoided_in / avoided_out on `flint_apply`.
+- `flint_ask` ok: avoided_out = the draft's tokens.
+
+**Acceptance:**
+- [ ] Unit tests for each tool's row, including a rejected write that has cost but no avoided.
+
+**Files:** `server.py`, `savings.py`, `write.py`, `read.py`, `tests/test_cost_log.py` · **Size:** M
+
+## T16: `flint-stats` savings and accuracy
+
+**Do:** `summarize` adds `savings` {avoided_in, avoided_out, cost_in, cost_out, net_in, net_out,
+net_weighted (output ×OUT_WEIGHT), saved_pct, per_tool} and `accuracy` {claims_kept,
+claims_stripped, strip_rate, write accept_rate, unverifiable}. `render` prints both. Old rows
+without the new fields are counted as calls but skipped in savings (reported as `unmeasured`).
+
+**Acceptance:**
+- [ ] Hand-computed totals on a fixture log; old rows are reported as unmeasured.
+
+**Files:** `stats.py`, `tests/test_stats.py`, `README.md` · **Size:** S
+
+## T17: Lifecycle guidance
+
+**Do:** INSTRUCTIONS, the `flint_server` description and `CLAUDE.md` / the snippet say: Flint
+autostarts on the next Flint call, so never call start first; when you have finished the
+delegated work for the user's request, call `flint_server("stop")`. `flint_server` stop reports
+the net tokens saved since the server started, so the stop is also the session's savings receipt.
+
+**Acceptance:**
+- [ ] Description tests require the new phrases; stop returns `saved_since_start`.
+
+**Files:** `server.py`, `CLAUDE.md`, `docs/spec/claude-md-snippet.md`, `tests/test_descriptions.py`,
+`tests/test_flint_server.py` · **Size:** S
