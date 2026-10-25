@@ -9,7 +9,13 @@ ROOT = Path(__file__).parent.parent
 # Each tool's description must carry its limits and its mandatory-check wording.
 REQUIRED = {
     "flint_status": ["Call once per session"],
-    "flint_server": ["~/.flint/server.toml", "before compiling", "Use stop"],
+    "flint_server": [
+        "~/.flint/server.toml",
+        "before compiling",
+        "Use stop",
+        "Never call start first",
+        "finished the delegated work",
+    ],
     "flint_read": ["USE THIS FIRST", "≤10k tokens", "≤8 chunks", "read its cited lines yourself"],
     "flint_write": ["STAGED", "MUST read the patch", "≤3 files", "≤6k tokens", "max 2 attempts"],
     "flint_apply": ["read the patch file yourself", "Refuses if checks failed"],
@@ -34,8 +40,17 @@ def test_instructions_state_the_budgets_and_mandatory_checks():
         "≤3 files",
         "≤6k tokens",
         "Checks are mandatory",
+        'never call flint_server("start") first',
+        "When you have finished the delegated work",
     ]:
         assert phrase in server.INSTRUCTIONS
+
+
+def test_claude_md_says_to_stop_flint_when_done_and_never_start_it():
+    for path in (ROOT / "CLAUDE.md", ROOT / "docs" / "spec" / "claude-md-snippet.md"):
+        text = path.read_text()
+        assert "**Stop Flint when you are done:**" in text, path
+        assert 'Never call `flint_server("start")`' in text, path
 
 
 def test_project_flint_toml_has_test_and_lint_checks():

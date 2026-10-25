@@ -1,6 +1,7 @@
 import asyncio
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from functools import partial, wraps
 from pathlib import Path
 from typing import Literal
@@ -12,6 +13,7 @@ from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
 from flint_bridge.report import cap, compact, est_tokens, factor_base
+from flint_bridge.savings import OUT_WEIGHT
 from flint_bridge.sysinfo import mem_pressure
 
 INSTRUCTIONS = (
@@ -20,6 +22,7 @@ INSTRUCTIONS = (
     "files or logs, boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
     "refactors, drafts. Keep: planning, architecture, subtle bugs, security-sensitive code, "
     "final review, anything under ~200 output tokens. When you skip Flint, say why in one line. "
+    'Every Flint tool autostarts it, so never call flint_server("start") first. '
     "Size every request to Flint's budget (call flint_status once per session): reads ≤10k "
     "tokens per chunk, ≤8 chunks; writes ≤3 files, ≤6k tokens total. Pass files, "
     "path:start-end ranges or globs, never directories: a read over one chunk is searched "
@@ -29,10 +32,30 @@ INSTRUCTIONS = (
     "flint_apply; never apply Flint "
     "changes any other way. Before compiling or any other memory-heavy command (builds, large "
     'test runs, Docker), call flint_server("stop") to give Flint\'s ~12GB back; the next Flint '
-    "call restarts it. If Flint is offline or fails twice, do it yourself and tell the user."
+    "call restarts it. When you have finished the delegated work for the user's request, call "
+    'flint_server("stop") too. If Flint is offline or fails twice, do it yourself and tell the '
+    "user."
 )
 
 idle = lifecycle.IdleWatcher()
+
+
+@dataclass
+class Session:
+    """Claude tokens saved by this bridge process (one Claude session): avoided minus spent."""
+
+    calls: int = 0
+    saved: int = 0
+
+    def add(self, cost: int, avoided: int) -> None:
+        self.calls += 1
+        self.saved += avoided - cost
+
+    def receipt(self) -> dict:
+        return {"calls": self.calls, "saved_tokens": self.saved}
+
+
+session = Session()
 
 
 def _server_config() -> tuple[lifecycle.ServerConfig | None, dict | None]:
@@ -115,6 +138,9 @@ def _report(
     report_tokens = est_tokens(compact(result))
     if "error" in result:
         fields.setdefault("error", result["error"])
+    cost_in, cost_out = report_tokens + extra_in, est_tokens(compact(args or {}))
+    avoided = (fields.get("avoided_in") or 0) + OUT_WEIGHT * (fields.get("avoided_out") or 0)
+    session.add(cost=cost_in + OUT_WEIGHT * cost_out, avoided=avoided)
     if outcome is None:
         outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
     try:
@@ -124,8 +150,8 @@ def _report(
             duration_ms=round((time.perf_counter() - started) * 1000),
             report_tokens=report_tokens,
             outcome=outcome,
-            cost_in=report_tokens + extra_in,
-            cost_out=est_tokens(compact(args or {})),
+            cost_in=cost_in,
+            cost_out=cost_out,
             **fields,
         )
     except OSError:
@@ -189,9 +215,10 @@ async def flint_status() -> dict:
 
 @tool(
     "Start/stop/restart the local Flint llama-server using the fixed settings in "
-    "~/.flint/server.toml. Usually unnecessary: Flint tools autostart it, and it stops itself "
-    "after idle_stop_min to free memory. Use stop when the user needs RAM back, and always "
-    "before compiling or other memory-heavy commands."
+    "~/.flint/server.toml. Never call start first: every Flint tool autostarts it, and it stops "
+    "itself after idle_stop_min. Use stop when you have finished the delegated work for the "
+    "user's request (it reports the tokens Flint saved this session), when the user needs RAM "
+    "back, and always before compiling or other memory-heavy commands."
 )
 async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     started = time.perf_counter()
@@ -219,6 +246,8 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
         "rss_gb": lifecycle.rss_gb(pid) if pid else None,
         "mem_free_pct": None if mem is None else 100 - mem,
     }
+    if action == "stop":
+        result["session"] = session.receipt()
     return report(result)
 
 

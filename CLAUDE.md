@@ -39,6 +39,8 @@ This project uses the local `flint-engine` MCP server (Flint, a 16K-context mode
 
 **Free the memory for heavy commands:** Flint holds about 12GB of this Mac's 18GB. Before compiling or running any other memory-heavy command (builds, large test runs, Docker), call `flint_server("stop")`. The next Flint tool call restarts it automatically.
 
+**Stop Flint when you are done:** Never call `flint_server("start")`: every Flint tool starts it when needed. When you have finished the delegated work for the user's request, call `flint_server("stop")` to give the memory back. Its `session` field is this session's receipt: Flint calls made and Claude tokens saved (estimated, output weighted 5x). Run `flint-stats` for the full measured history.
+
 **Check commands for this project** (these must match `flint.toml`):
 - test: `uv run pytest -q -x`
 - lint: `uv run ruff check .`

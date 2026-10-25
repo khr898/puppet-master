@@ -50,7 +50,7 @@ def running_config(env, tmp_path, monkeypatch) -> ServerConfig:
 async def test_flint_server_tool_is_registered_with_directive_description():
     tools = {t.name: t for t in await server.mcp.list_tools()}
     desc = tools["flint_server"].description
-    assert "Use stop when the user needs RAM back" in desc
+    assert "Use stop when you have finished the delegated work" in desc
     assert "compiling" in desc
     assert "start" in json.dumps(tools["flint_server"].inputSchema)
 
@@ -80,6 +80,14 @@ async def test_flint_server_start_then_stop(running_config):
     assert stopped["managed"] is False
     assert stopped["pid"] is None
     assert stopped["stopped"] is True
+
+
+async def test_stop_reports_the_tokens_saved_this_session(running_config, monkeypatch):
+    monkeypatch.setattr(server, "session", server.Session())
+    server.session.add(cost=100, avoided=1500)
+    server.session.add(cost=50, avoided=0)
+    stopped = await server.flint_server("stop")
+    assert stopped["session"] == {"calls": 2, "saved_tokens": 1350}
 
 
 async def test_flint_server_restart_gives_a_new_pid(running_config):

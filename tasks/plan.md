@@ -91,7 +91,7 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 - [x] T14: Compact reports on the wire: no indented JSON, claim paths relative to a shared `base`
 - [x] T15: Per-call Claude cost and avoided tokens in the call log
 - [x] T16: `flint-stats` savings and accuracy section, from the real log
-- [ ] T17: Lifecycle guidance: stop Flint when the delegated work is done, never start it by hand
+- [x] T17: Lifecycle guidance: stop Flint when the delegated work is done, never start it by hand
 
 ## Risks and Mitigations
 
