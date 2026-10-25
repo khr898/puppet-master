@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,8 @@ async def test_read_answers_with_verified_claims():
     assert "error" not in out, out
     assert isinstance(out["answer"], str) and out["answer"]
     assert {"claims", "stripped", "chunks"} <= set(out)
-    assert all(c["file"] == str(path) for c in out["claims"])
+    base = out.get("base", "")
+    assert all(os.path.join(base, c["file"]) == str(path) for c in out["claims"])
     assert_fits_report_cap(out)
 
 

@@ -1,8 +1,7 @@
 import asyncio
-import json
 import time
 from contextlib import asynccontextmanager
-from functools import partial
+from functools import partial, wraps
 from pathlib import Path
 from typing import Literal
 
@@ -12,7 +11,7 @@ from flint_bridge import ask, check, gitops, lifecycle, llm, read, samples, stag
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
-from flint_bridge.report import cap, est_tokens
+from flint_bridge.report import cap, compact, est_tokens, factor_base
 from flint_bridge.sysinfo import mem_pressure
 
 INSTRUCTIONS = (
@@ -61,6 +60,23 @@ async def _lifespan(_server: FastMCP):
 mcp = FastMCP("flint-engine", instructions=INSTRUCTIONS, lifespan=_lifespan)
 
 
+def tool(description: str):
+    """Register fn as a tool whose dict reaches Claude as one block of compact JSON text.
+
+    FastMCP would send it indented, plus a structured copy. fn itself is returned unchanged.
+    """
+
+    def register(fn):
+        @wraps(fn)
+        async def wire(*args, **kwargs) -> str:
+            return compact(await fn(*args, **kwargs))
+
+        mcp.add_tool(wire, name=fn.__name__, description=description, structured_output=False)
+        return fn
+
+    return register
+
+
 async def ensure_up(cfg: Config) -> dict | None:
     """Autostart Flint if it is down. Returns an error dict for the caller to return, else None.
 
@@ -97,7 +113,7 @@ def _report(
             root,
             tool=tool,
             duration_ms=round((time.perf_counter() - started) * 1000),
-            report_tokens=est_tokens(json.dumps(result)),
+            report_tokens=est_tokens(compact(result)),
             outcome=outcome,
             **fields,
         )
@@ -133,10 +149,7 @@ def _capture(root: Path | None, cfg: Config, tool: str, usage: read.Usage, verdi
             pass  # samples are a bonus: never break a tool over them
 
 
-@mcp.tool(
-    description="Health and budgets of the local Flint model. Call once per session before "
-    "delegating."
-)
+@tool("Health and budgets of the local Flint model. Call once per session before delegating.")
 async def flint_status() -> dict:
     started = time.perf_counter()
     cfg = load_config(Path.cwd())
@@ -163,8 +176,8 @@ async def flint_status() -> dict:
     return _report("flint_status", result, started)
 
 
-@mcp.tool(
-    description="Start/stop/restart the local Flint llama-server using the fixed settings in "
+@tool(
+    "Start/stop/restart the local Flint llama-server using the fixed settings in "
     "~/.flint/server.toml. Usually unnecessary: Flint tools autostart it, and it stops itself "
     "after idle_stop_min to free memory. Use stop when the user needs RAM back, and always "
     "before compiling or other memory-heavy commands."
@@ -197,8 +210,8 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     return _report("flint_server", result, started)
 
 
-@mcp.tool(
-    description="USE THIS FIRST to read, search or summarize files/logs instead of opening them "
+@tool(
+    "USE THIS FIRST to read, search or summarize files/logs instead of opening them "
     "yourself. Returns a short answer whose claims are mechanically verified against the source "
     "(unverified claims are removed). Before acting on a claim, read its cited lines yourself. "
     "Pass files, path:start-end ranges or globs (e.g. /repo/src/**/*.py), never directories. "
@@ -225,7 +238,7 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
     _capture(root, cfg, "flint_read", usage, verdict)
     return _report(
         "flint_read",
-        result,
+        factor_base(result),
         started,
         root,
         stripped=result.get("stripped"),
@@ -236,8 +249,8 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
     )
 
 
-@mcp.tool(
-    description="USE THIS for boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
+@tool(
+    "USE THIS for boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
     "refactors. Flint writes a STAGED patch (your working tree is untouched) and tests run on it "
     "automatically. You MUST read the patch at patch_path before calling flint_apply. To retry, "
     "call again with the same task and your feedback in constraints (max 2 attempts). A file "
@@ -291,8 +304,8 @@ def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
         pass  # the patch is already applied or rejected: a bad flint.toml must not hide that
 
 
-@mcp.tool(
-    description="Apply a staged Flint patch to the working tree. Only call after you have read "
+@tool(
+    "Apply a staged Flint patch to the working tree. Only call after you have read "
     "the patch file yourself and agree with it. Refuses if checks failed or the patch was "
     "modified."
 )
@@ -307,7 +320,7 @@ async def flint_apply(root: str, patch_id: str) -> dict:
     return _report("flint_apply", result, started, root_path, outcome=outcome, task_key=key)
 
 
-@mcp.tool(description="Reject a staged patch after review; counts as a failed attempt.")
+@tool("Reject a staged patch after review; counts as a failed attempt.")
 async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
     started = time.perf_counter()
     root_path = Path(root)
@@ -327,8 +340,8 @@ async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
     )
 
 
-@mcp.tool(
-    description="Run an allow-listed check (names from flint.toml, e.g. 'test', 'lint') and get "
+@tool(
+    "Run an allow-listed check (names from flint.toml, e.g. 'test', 'lint') and get "
     "only the failures. With patch_id, runs against that staged patch in an isolated worktree."
 )
 async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
@@ -347,8 +360,8 @@ async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     return _report("flint_check", result, started, root_path, outcome=outcome)
 
 
-@mcp.tool(
-    description="Drafts and prose only (docs, emails, commit messages, rewrites, explanations of "
+@tool(
+    "Drafts and prose only (docs, emails, commit messages, rewrites, explanations of "
     "text you provide). Output is UNVERIFIED. For any question about code or files, use "
     "flint_read instead."
 )
