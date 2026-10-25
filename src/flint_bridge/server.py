@@ -113,6 +113,8 @@ def _report(
     """
     result = cap(result)
     report_tokens = est_tokens(compact(result))
+    if "error" in result:
+        fields.setdefault("error", result["error"])
     if outcome is None:
         outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
     try:
@@ -256,6 +258,7 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
         args={"paths": paths, "question": question, "exhaustive": exhaustive},
         extra_in=savings.verify_tokens(result),  # while the claim paths are still absolute
         avoided_in=usage.seen_tokens if delivered else None,
+        claims=len(result["claims"]) if delivered else None,
         stripped=result.get("stripped"),
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,

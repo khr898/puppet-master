@@ -46,7 +46,22 @@ UV_CACHE_DIR=.uv-cache uv run flint-stats --since 7d
 
 It prints calls per tool, outcome counts, the accept rate (`applied` over `applied`, `rejected`,
 `miss` and `check_failed`), average report size, Flint tokens in and out, average duration and
-average reasoning tokens. For the one-week trial, use Claude as usual for a week and compare how
+average reasoning tokens.
+
+It also prints the **measured savings** from real calls. Each row logs what the call cost Claude
+(`cost_in`: the report plus the cited lines or patch Claude reads to check it; `cost_out`: the
+arguments Claude wrote) and, for delivered work, what Claude would have spent doing it itself
+(`avoided_in`: the file text Flint actually saw, so a focused read of a broad glob counts only the
+matching blocks; `avoided_out`: the added lines of an applied patch, or an `flint_ask` draft). A
+write is credited only when applied, so rejected and failed delegations count against Flint. The
+net is shown with output tokens weighted 5x (their price ratio). All figures are `chars/4`
+estimates, and rows from before this was measured are listed as unmeasured. Accuracy is the
+share of claims stripped by verification and the number of unverifiable outputs.
+
+Reports reach Claude as compact JSON, and a read's claims give their shared folder once as
+`base` with each `file` relative to it.
+
+For the one-week trial, use Claude as usual for a week and compare how
 often you hit your usage limit with a normal week, alongside the accept rate and the misses.
 
 Smoke-test the real model with `uv run pytest -m live`; it skips itself when llama-server is down.

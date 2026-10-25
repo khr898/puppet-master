@@ -86,3 +86,46 @@ def test_a_damaged_log_line_is_skipped(tmp_path):
     path.write_text(f'{good}\n{{"ts": "2026-\n{json.dumps({"tool": "x"})}\n[1]\n{good}\n')
     assert len(stats.load_rows(path)) == 2
     assert len(stats.load_rows(path, since="7d")) == 2
+
+
+def measured_log(tmp_path):
+    rows = [
+        row("flint_status", "ok", cost_in=60, cost_out=1),
+        row("flint_read", "ok", cost_in=150, cost_out=20, avoided_in=3000, claims=4, stripped=1),
+        row("flint_read", "error", cost_in=10, cost_out=20, error="unverifiable_output"),
+        row("flint_write", "staged", cost_in=400, cost_out=50),
+        row("flint_apply", "applied", cost_in=20, cost_out=10, avoided_in=2000, avoided_out=300),
+        row("flint_ask", "ok", cost_in=100, cost_out=40, avoided_out=200),
+        row("flint_read", "ok", report_tokens=90),  # logged before costs were measured
+    ]  # fmt: skip
+    path = tmp_path / "log.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    return stats.summarize(stats.load_rows(path))
+
+
+def test_savings_are_avoided_minus_cost_over_measured_rows(tmp_path):
+    s = measured_log(tmp_path)["savings"]
+    assert s["measured"] == 6 and s["unmeasured"] == 1
+    assert (s["avoided_in"], s["avoided_out"]) == (5000, 500)
+    assert (s["cost_in"], s["cost_out"]) == (740, 141)
+    assert (s["net_in"], s["net_out"]) == (4260, 359)
+    assert s["net_weighted"] == 4260 + 5 * 359
+    assert s["saved_pct"] == pytest.approx(100 * (4260 + 5 * 359) / (5000 + 5 * 500))
+    assert s["per_tool"]["flint_read"] == {"cost": 150 + 100 + 10 + 100, "avoided": 3000}
+
+
+def test_accuracy_counts_kept_and_stripped_claims_and_unverifiable_output(tmp_path):
+    a = measured_log(tmp_path)["accuracy"]
+    assert (a["claims_kept"], a["claims_stripped"]) == (4, 1)
+    assert a["strip_rate"] == pytest.approx(0.2)
+    assert a["unverifiable"] == 1
+
+
+def test_main_prints_savings_and_accuracy(tmp_path, capsys):
+    measured_log(tmp_path)
+    stats.main(["--log", str(tmp_path / "log.jsonl")])
+    out = capsys.readouterr().out
+    assert "Claude tokens saved" in out
+    assert "6055" in out  # net weighted
+    assert "1 call logged before costs were measured" in out
+    assert "Claims stripped: 1 of 5 (20.0%)" in out
