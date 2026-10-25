@@ -7,7 +7,7 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import ask, check, gitops, lifecycle, llm, read, samples, staging, write
+from flint_bridge import ask, check, gitops, lifecycle, llm, read, samples, savings, staging, write
 from flint_bridge.budget import parse_path
 from flint_bridge.config import Config, load_config
 from flint_bridge.log import log_call
@@ -103,9 +103,16 @@ def _report(
     started: float,
     root: Path | None = None,
     outcome: str | None = None,
+    args: dict | None = None,
+    extra_in: int = 0,
     **fields,
 ) -> dict:
+    """Cap and log the report. `args` are what Claude wrote to make the call, and `extra_in` what
+    it must read to check the result (cited lines, the patch): together with the report, the
+    call's cost to Claude. Delivered work also logs `avoided_in`/`avoided_out` (see savings.py).
+    """
     result = cap(result)
+    report_tokens = est_tokens(compact(result))
     if outcome is None:
         outcome = _OUTCOME_BY_ERROR.get(result["error"], "error") if "error" in result else "ok"
     try:
@@ -113,8 +120,10 @@ def _report(
             root,
             tool=tool,
             duration_ms=round((time.perf_counter() - started) * 1000),
-            report_tokens=est_tokens(compact(result)),
+            report_tokens=report_tokens,
             outcome=outcome,
+            cost_in=report_tokens + extra_in,
+            cost_out=est_tokens(compact(args or {})),
             **fields,
         )
     except OSError:
@@ -184,17 +193,18 @@ async def flint_status() -> dict:
 )
 async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     started = time.perf_counter()
+    report = partial(_report, "flint_server", started=started, args={"action": action})
     cfg = load_config(Path.cwd())
     sc, err = _server_config()
     if err:
-        return _report("flint_server", err, started)
+        return report(err)
     outcome: dict = {}
     if action in ("stop", "restart"):
         outcome = await asyncio.to_thread(lifecycle.stop, sc)
     if action in ("start", "restart"):
         result = await lifecycle.start(sc, cfg)
         if "error" in result:
-            return _report("flint_server", result, started)
+            return report(result)
         idle.touch()
     h = await llm.health(cfg)
     pid = lifecycle.managed_pid(sc)
@@ -207,7 +217,7 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
         "rss_gb": lifecycle.rss_gb(pid) if pid else None,
         "mem_free_pct": None if mem is None else 100 - mem,
     }
-    return _report("flint_server", result, started)
+    return report(result)
 
 
 @tool(
@@ -236,11 +246,16 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
     else:
         verdict = f"stripped:{result['stripped']}" if result.get("stripped") else "verified"
     _capture(root, cfg, "flint_read", usage, verdict)
+    result = cap(result)
+    delivered = "answer" in result
     return _report(
         "flint_read",
         factor_base(result),
         started,
         root,
+        args={"paths": paths, "question": question, "exhaustive": exhaustive},
+        extra_in=savings.verify_tokens(result),  # while the claim paths are still absolute
+        avoided_in=usage.seen_tokens if delivered else None,
         stripped=result.get("stripped"),
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
@@ -284,6 +299,8 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
         started,
         root,
         outcome=outcome,
+        args={"task": task, "files": files, "constraints": constraints},
+        extra_in=_patch_tokens(result),
         task_key=write.task_key(task),
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
@@ -292,9 +309,16 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
     )
 
 
-def _staged_task_key(root: Path, patch_id: str) -> str | None:
-    meta = staging.load_meta(root, patch_id) if root.is_absolute() else None
-    return meta.get("task_key") if meta else None
+def _patch_tokens(result: dict) -> int:
+    """The staged patch, which Claude must read before applying it."""
+    try:
+        return est_tokens(Path(result["patch_path"]).read_text(errors="replace"))
+    except (KeyError, OSError):
+        return 0
+
+
+def _staged_meta(root: Path, patch_id: str) -> dict:
+    return (staging.load_meta(root, patch_id) if root.is_absolute() else None) or {}
 
 
 def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
@@ -312,19 +336,30 @@ def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
 async def flint_apply(root: str, patch_id: str) -> dict:
     started = time.perf_counter()
     root_path = Path(root)
-    key = _staged_task_key(root_path, patch_id)
+    meta = _staged_meta(root_path, patch_id)
     result = await asyncio.to_thread(write.flint_apply_impl, root_path, patch_id)
     outcome = "applied" if result.get("applied") else None
     if outcome:
         _record_verdict(root_path, "flint_apply", patch_id, "applied")
-    return _report("flint_apply", result, started, root_path, outcome=outcome, task_key=key)
+    avoided = (meta.get("avoided") or {}) if outcome else {}
+    return _report(
+        "flint_apply",
+        result,
+        started,
+        root_path,
+        outcome=outcome,
+        args={"root": root, "patch_id": patch_id},
+        task_key=meta.get("task_key"),
+        avoided_in=avoided.get("in"),
+        avoided_out=avoided.get("out"),
+    )
 
 
 @tool("Reject a staged patch after review; counts as a failed attempt.")
 async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
     started = time.perf_counter()
     root_path = Path(root)
-    key = _staged_task_key(root_path, patch_id)
+    key = _staged_meta(root_path, patch_id).get("task_key")
     result = await asyncio.to_thread(write.flint_reject_impl, root_path, patch_id, reason)
     outcome = "rejected" if result.get("rejected") else None
     if outcome:
@@ -335,6 +370,7 @@ async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
         started,
         root_path,
         outcome=outcome,
+        args={"root": root, "patch_id": patch_id, "reason": reason},
         task_key=key,
         reason=reason[:200],
     )
@@ -346,9 +382,10 @@ async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
 )
 async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     started = time.perf_counter()
+    args = {"cmd": cmd, "root": root, "patch_id": patch_id}
     root_path = Path(root)
     if not root_path.is_absolute():
-        return _report("flint_check", {"error": "relative_path", "path": root}, started)
+        return _report("flint_check", {"error": "relative_path", "path": root}, started, args=args)
     cfg = load_config(root_path)
     if patch_id is not None:
         result = await asyncio.to_thread(staging.check_staged_patch, cfg, root_path, patch_id, cmd)
@@ -357,7 +394,7 @@ async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     outcome = None
     if "passed" in result:
         outcome = "ok" if result["passed"] else "check_failed"
-    return _report("flint_check", result, started, root_path, outcome=outcome)
+    return _report("flint_check", result, started, root_path, outcome=outcome, args=args)
 
 
 @tool(
@@ -379,6 +416,8 @@ async def flint_ask(prompt: str, context: str = "") -> dict:
         "flint_ask",
         result,
         started,
+        args={"prompt": prompt, "context": context},
+        avoided_out=est_tokens(result["draft"]) if "draft" in result else None,
         flint_tokens_in=usage.tokens_in,
         flint_tokens_out=usage.tokens_out,
         retries=usage.retries,

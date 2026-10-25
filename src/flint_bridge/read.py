@@ -152,6 +152,8 @@ class Usage:
     tokens_out: int = 0
     retries: int = 0
     reasoning_tokens: int = 0
+    # File text Flint was shown (focused reads: only the matching blocks), as Claude would see it
+    seen_tokens: int = 0
     model_seconds: float = 0.0
     # (system, user, raw output) of every model call, for sample capture
     calls: list[tuple[str, str, str]] = field(default_factory=list)
@@ -384,6 +386,7 @@ async def flint_read_impl(
             chunks = [files]
     if len(chunks) > cfg.max_chunks:
         return _over_budget(est_tokens(_render(files)), cfg.effective_chunk_tokens * cfg.max_chunks)
+    usage.seen_tokens = est_tokens(_render(files))
     prompts = []
     for chunk in chunks:
         tokens = est_tokens(_render(chunk))

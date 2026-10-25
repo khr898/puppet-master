@@ -18,6 +18,7 @@ OUTCOMES = frozenset(
 FIELDS = (
     "tool", "task_key", "duration_ms", "report_tokens",
     "flint_tokens_in", "flint_tokens_out", "outcome", "stripped", "retries", "reasoning_tokens",
+    "cost_in", "cost_out", "avoided_in", "avoided_out",
 )  # fmt: skip
 
 

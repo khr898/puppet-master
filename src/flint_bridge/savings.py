@@ -30,7 +30,7 @@ def _text(spec: str | Path) -> str:
     return "".join(lines[int(m.group(2)) - 1 : int(m.group(3))])
 
 
-def _verify_tokens(result: dict) -> int:
+def verify_tokens(result: dict) -> int:
     """Tokens Claude spends reading the lines each reported claim cites."""
     total = 0
     for c in result.get("claims", []):
@@ -52,14 +52,19 @@ def read_savings(specs: list, result: dict, *, ok: bool) -> dict:
     """Without Flint Claude reads the files; with it, the report and the lines it cites."""
     baseline = sum(est_tokens(_text(s)) for s in specs)
     report = est_tokens(json.dumps(result))
-    verify = _verify_tokens(result)
+    verify = verify_tokens(result)
     return _row(baseline, report + verify + (0 if ok else baseline), verify=verify)
+
+
+def added_tokens(patch: str | None) -> int:
+    """Tokens of the lines a patch adds: what Claude would have written to make the change."""
+    added = [ln[1:] for ln in (patch or "").splitlines() if ln.startswith("+") and ln[:3] != "+++"]
+    return est_tokens("\n".join(added))
 
 
 def write_savings(texts: list[str], patch: str | None, result: dict, *, passed: bool) -> dict:
     """Without Flint Claude reads the files and writes the change; with it, reads the patch."""
-    added = [ln[1:] for ln in (patch or "").splitlines() if ln.startswith("+") and ln[:3] != "+++"]
-    out = est_tokens("\n".join(added))
+    out = added_tokens(patch)
     baseline = sum(est_tokens(t) for t in texts) + OUT_WEIGHT * out
     with_flint = est_tokens(patch or "") + est_tokens(json.dumps(result))
     return _row(baseline, with_flint + (0 if passed else baseline), baseline_out=out)

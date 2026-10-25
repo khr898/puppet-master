@@ -15,6 +15,7 @@ from flint_bridge.gitops import GitError, run_git, stage_and_check, toplevel
 from flint_bridge.read import Usage, _complete_json, _norm
 from flint_bridge.report import est_tokens
 from flint_bridge.retrieve import Block, rank, split_blocks
+from flint_bridge.savings import added_tokens
 
 NOTES_CHARS = 300
 REPORT_FAILURES = 5
@@ -349,6 +350,8 @@ async def flint_write_impl(
                 "check": check,
                 "created": datetime.now(UTC).isoformat(),
                 "applied": False,
+                # What Claude would have read and written to make this change itself
+                "avoided": {"in": sum(editable.values()), "out": added_tokens(staged["patch"])},
             }
         )
     )
