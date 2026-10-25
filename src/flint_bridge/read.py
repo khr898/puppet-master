@@ -23,6 +23,8 @@ SYSTEM_READ = (
     "You answer questions about source files. Every factual statement must be backed by a "
     "claim citing the exact file path, the line number shown in the left margin, and a short "
     "quote copied character-for-character from that line. Never cite lines you were not shown. "
+    "State the names, values and numbers themselves: write 'a, b and c', never only 'the "
+    "values in X' or another pointer to where they are defined. "
     'Reply with JSON only: {"answer": string, "claims": [{"text": string, "file": string, '
     '"line": int, "quote": string}]}.'
 )
@@ -50,7 +52,10 @@ READ_SCHEMA = {
 
 SYSTEM_MERGE = (
     "Combine partial answers into one answer to the question. You may only rely on the listed "
-    'claims. Reply with JSON only: {"answer": string, "claim_ids": [string]}.'
+    "claims. "
+    "State the names, values and numbers themselves: write 'a, b and c', never only 'the "
+    "values in X' or another pointer to where they are defined. "
+    'Reply with JSON only: {"answer": string, "claim_ids": [string]}.'
 )
 
 MERGE_SCHEMA = {

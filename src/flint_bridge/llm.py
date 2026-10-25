@@ -11,7 +11,7 @@ _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class FlintOffline(Exception):
-    """llama-server is unreachable, timed out, or returned an unusable response."""
+    """The model server is unreachable, timed out, or returned an unusable response."""
 
 
 @dataclass
@@ -33,9 +33,9 @@ async def complete(
     cfg: Config, system: str, user: str, *, max_tokens: int, schema: dict | None = None
 ) -> Completion:
     payload: dict = {
-        "model": "flint",
+        "model": cfg.model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "temperature": 0.2,
+        "temperature": cfg.temperature,
         "max_tokens": max_tokens,
         "cache_prompt": True,
     }
@@ -68,11 +68,17 @@ async def complete(
 
 
 async def health(cfg: Config) -> dict:
-    """GET /health and /props. Returns {up, latency_ms, ctx}, or {up: False} on any failure."""
+    """GET /health and /props. Returns {up, latency_ms, ctx}, or {up: False} on any failure.
+
+    A server without llama.cpp's /health (Ollama, LM Studio, mlx_lm) is up if /v1/models
+    answers; a 503 from /health means llama-server is still loading, so that stays down.
+    """
     try:
         async with httpx.AsyncClient(timeout=min(cfg.timeout_s, 5)) as client:
             start = time.perf_counter()
             resp = await client.get(f"{cfg.base_url}/health")
+            if resp.status_code == 404:
+                resp = await client.get(f"{cfg.base_url}/v1/models")
             resp.raise_for_status()
             latency_ms = round((time.perf_counter() - start) * 1000)
             ctx = cfg.ctx

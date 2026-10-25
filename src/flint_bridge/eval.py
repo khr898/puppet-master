@@ -52,6 +52,7 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
         "id": task["id"],
         "error": out.get("error"),
         "correct": correct,
+        "answer": out.get("answer"),
         # What Claude would have read without Flint: the files that hold the answer.
         "savings": savings.read_savings(
             [f"{repo}/{p}" for p in task.get("baseline_paths", task["paths"])], out, ok=correct

@@ -42,6 +42,12 @@ def test_server_and_budget_keys_override_defaults(tmp_path: Path):
     assert cfg.check_timeout_s == 60
 
 
+def test_temperature_defaults_to_zero_and_can_be_set(tmp_path: Path):
+    assert load_config(tmp_path).temperature == 0
+    (tmp_path / "flint.toml").write_text("[server]\ntemperature = 0.4\n")
+    assert load_config(tmp_path).temperature == 0.4
+
+
 def test_env_overrides_base_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     (tmp_path / "flint.toml").write_text('[server]\nbase_url = "http://127.0.0.1:9000"\n')
     monkeypatch.setenv("FLINT_BASE_URL", "http://127.0.0.1:7777")
@@ -97,3 +103,9 @@ def test_bad_samples_or_reserve_is_rejected(tmp_path: Path, toml: str):
     (tmp_path / "flint.toml").write_text(toml)
     with pytest.raises(ValueError):
         load_config(tmp_path)
+
+
+def test_model_id_defaults_to_the_flint_alias_and_can_be_set(tmp_path: Path):
+    assert load_config(tmp_path).model == "flint"
+    (tmp_path / "flint.toml").write_text('[server]\nmodel = "mellum2.1"\n')
+    assert load_config(tmp_path).model == "mellum2.1"

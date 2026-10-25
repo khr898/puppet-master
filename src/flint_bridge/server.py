@@ -195,7 +195,7 @@ async def flint_status() -> dict:
     pid = lifecycle.managed_pid(sc) if sc else None
     result = {
         "up": h["up"],
-        "model": "flint",
+        "model": cfg.model,
         "ctx": h.get("ctx", cfg.ctx),
         "latency_ms": h.get("latency_ms"),
         "mem_pressure": mem_pressure(),

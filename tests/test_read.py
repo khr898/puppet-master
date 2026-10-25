@@ -608,3 +608,10 @@ def test_number_lines_marks_each_gap_once():
         number_lines(["a", None, None, "d"], start=3)
         == "    3| a\n  ...| (lines not shown)\n    6| d"
     )
+
+
+def test_prompts_ask_for_the_values_themselves_not_a_reference_to_them():
+    from flint_bridge.read import SYSTEM_READ
+
+    for prompt in (SYSTEM_READ, SYSTEM_MERGE):
+        assert "State the names, values and numbers themselves" in prompt

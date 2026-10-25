@@ -173,6 +173,7 @@ async def test_perfect_answers_score_one_hundred_percent():
     assert summary["speed"]["tok_per_s"] is not None
     assert summary["memory"]["peak_rss_gb"] is None
     assert len(res["reads"]) == 20 and len(res["writes"]) == 7
+    assert all(isinstance(r["answer"], str) and r["answer"] for r in res["reads"])
 
 
 async def test_hallucinated_claims_show_up_as_stripped():

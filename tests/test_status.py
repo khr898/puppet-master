@@ -87,3 +87,12 @@ async def test_status_survives_unwritable_log(monkeypatch):
 def test_instructions_tell_claude_to_stop_flint_before_heavy_builds():
     assert "flint_server" in server.INSTRUCTIONS
     assert "compil" in server.INSTRUCTIONS
+
+
+@respx.mock
+async def test_status_reports_the_configured_model(tmp_path, monkeypatch):
+    (tmp_path / "flint.toml").write_text('[server]\nmodel = "mellum2.1"\n')
+    monkeypatch.chdir(tmp_path)
+    respx.get(f"{BASE}/health").mock(return_value=httpx.Response(200, json={}))
+    respx.get(f"{BASE}/props").mock(return_value=httpx.Response(404))
+    assert (await server.flint_status())["model"] == "mellum2.1"

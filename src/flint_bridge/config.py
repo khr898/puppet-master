@@ -7,7 +7,11 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Config:
     base_url: str = "http://127.0.0.1:8000"
+    # Model id sent with each request: llama-server's --alias, or the name Ollama/LM Studio use.
+    model: str = "flint"
     ctx: int = 16384
+    # 0 keeps quotes and edits reproducible: the same question gets the same answer.
+    temperature: float = 0.0
     chunk_tokens: int = 10000
     max_chunks: int = 8
     write_max_tokens: int = 6000
@@ -52,8 +56,12 @@ def load_config(root: Path) -> Config:
         server = data.get("server", {})
         budget = data.get("budget", {})
         check = data.get("check", {})
+        if "temperature" in server:
+            t = server["temperature"]
+            if isinstance(t, bool) or not isinstance(t, int | float) or not 0 <= t <= 2:
+                raise ValueError(f"[server] temperature must be a number from 0 to 2, got {t!r}")
         updates = {
-            **{k: server[k] for k in ("base_url", "ctx") if k in server},
+            **{k: server[k] for k in ("base_url", "model", "ctx", "temperature") if k in server},
             **{
                 k: budget[k]
                 for k in (

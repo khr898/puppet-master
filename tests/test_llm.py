@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -36,7 +37,7 @@ async def test_complete_sends_messages_and_always_sends_cache_prompt():
         {"role": "user", "content": "USER"},
     ]
     assert sent["model"] == "flint"
-    assert sent["temperature"] == 0.2
+    assert sent["temperature"] == 0
     assert sent["max_tokens"] == 77
     assert sent["cache_prompt"] is True
     assert "response_format" not in sent
@@ -146,4 +147,38 @@ async def test_health_down_when_cannot_connect():
 @respx.mock
 async def test_health_down_on_503_loading():
     respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(503))
+    assert (await health(CFG))["up"] is False
+
+
+@respx.mock
+async def test_complete_sends_the_configured_temperature():
+    route = respx.post(URL).mock(return_value=reply("x"))
+    await complete(replace(CFG, temperature=0.7), "s", "u", max_tokens=5)
+    assert json.loads(route.calls.last.request.content)["temperature"] == 0.7
+
+
+@respx.mock
+async def test_complete_sends_the_configured_model_id():
+    route = respx.post(URL).mock(return_value=reply("x"))
+    await complete(replace(CFG, model="qwen3.5:9b"), "s", "u", max_tokens=5)
+    assert json.loads(route.calls.last.request.content)["model"] == "qwen3.5:9b"
+
+
+@respx.mock
+async def test_health_falls_back_to_v1_models_on_servers_without_health():
+    """Ollama, LM Studio and others answer /v1/models but not llama.cpp's /health."""
+    respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(404))
+    respx.get(f"{CFG.base_url}/v1/models").mock(
+        return_value=httpx.Response(200, json={"data": [{"id": "qwen3.5:9b"}]})
+    )
+    respx.get(f"{CFG.base_url}/props").mock(return_value=httpx.Response(404))
+    out = await health(CFG)
+    assert out["up"] is True
+    assert out["ctx"] == CFG.ctx
+
+
+@respx.mock
+async def test_health_is_down_when_neither_endpoint_answers():
+    respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(404))
+    respx.get(f"{CFG.base_url}/v1/models").mock(return_value=httpx.Response(404))
     assert (await health(CFG))["up"] is False

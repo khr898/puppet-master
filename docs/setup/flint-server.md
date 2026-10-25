@@ -143,3 +143,32 @@ Once the bridge is built (Checkpoint A in `tasks/todo.md`), add this to Claude D
   "args": ["--directory", "/path/to/puppet-master", "run", "flint-bridge"]
 }
 ```
+
+## Using a different local model
+
+The bridge talks to any OpenAI-compatible server through `/v1/chat/completions`. "Flint" is the
+name of the role, not a requirement on the model.
+
+**Another GGUF on llama-server (recommended, fully managed):** change `model` in
+`~/.flint/server.toml` and call `flint_server("restart")`. The bridge launches it with
+`--alias flint`, so nothing else changes. You keep autostart, idle stop, the memory preflight,
+`json_schema` grammar and prompt caching.
+
+**A server you run yourself (Ollama, LM Studio, mlx_lm.server, vLLM):** point the project's
+`flint.toml` at it and name the model as that server knows it:
+
+```toml
+[server]
+base_url = "http://127.0.0.1:11434"   # Ollama; LM Studio is :1234, mlx_lm.server :8080
+model = "mellum2.1:12b"                # the id from GET /v1/models
+ctx = 16384                            # the context the server was started with
+```
+
+Leave `~/.flint/server.toml` out (or set `autostart = false`). The bridge then uses whatever is
+running: health falls back from `/health` to `/v1/models`, and `flint_server` reports
+`not_managed`, so starting and stopping are up to you (`ollama stop <model>`, or `keep_alive`).
+Structured output: llama-server, Ollama and LM Studio honour `response_format` `json_schema`;
+mlx_lm.server ignores it, so the bridge's JSON validation and single retry do the work there.
+
+After switching, run `flint-eval --label <name>` and `flint-eval --compare flint-iq2xxs <name>`.
+`temperature` (default 0) can be set under `[server]` in flint.toml.
