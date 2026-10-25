@@ -127,7 +127,10 @@ def test_every_read_task_points_at_source_that_contains_its_keywords(task):
     for p in task.get("baseline_paths", task["paths"]):
         path = ROOT / re.sub(r":\d+-\d+$", "", p)
         assert path.exists(), p
-        text += path.read_text().lower()
+        lines = path.read_text().lower().splitlines()
+        if m := re.search(r":(\d+)-(\d+)$", p):  # a range must still cover the code it asks about
+            lines = lines[int(m.group(1)) - 1 : int(m.group(2))]
+        text += "\n".join(lines)
     for keyword in task["must_mention"]:
         assert keyword.lower() in text, f"{keyword!r} not in the source of {task['id']}"
 

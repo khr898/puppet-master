@@ -57,6 +57,30 @@ None of these numbers come from an independent test of *this* job (citing exact 
 
   **Gemma 4 12B Q4 was not run**, by the user's choice, so this confirms Flint as the default but doesn't show it beats the alternative. Flint stays the default; the comparison remains open (`flint-eval --compare`) if the one-week trial shows a quality or memory problem.
 
+- **Phase 6 re-run (2026-10-25, measured, Flint UD-IQ2_XXS).** `evals/results/phase6-concrete.json`,
+  temperature 0, prompts that require concrete values: read 85% answer-correct (65% in
+  `phase5-compact` before the fix), write 86% check-pass, 26.4 tok/s, 0 errors. `flint-savings`:
+  74% of Claude tokens saved (reads 58%, writes 89%). The 65% dip was Flint answering by reference
+  ("the keys listed in PROTECTED") plus run-to-run noise at temperature 0.2, not the model
+  getting worse. `managed-pid-check` failed only because its line range had gone stale.
+
+## Candidates to bake off next (2026-10-25, not yet measured here)
+
+"Loads only the parameters it needs" is what a MoE does *per token*: only the active experts are
+computed, so speed tracks active parameters. The whole file still has to sit in RAM to run at
+speed. llama.cpp memory-maps it and pages experts in from disk on demand, but on an 18GB Mac
+paging means swapping and a big slowdown. So the memory budget is still the file size + KV cache.
+
+| Candidate | Total / active | Usable quant | Why |
+|---|---|---|---|
+| **JetBrains Mellum2.1** | 12B / 2.5B MoE | Q4_K_M ≈ 7.5 GB | Same active size as Flint at 4-bit instead of ~2.4-bit, with about 4 GB less memory. Vendor reports 82.0 LiveCodeBench v6 and 47.0 SWE-bench Verified. Released Oct 2026, so it needs a recent llama.cpp for MXFP4_MOE. **First pick.** |
+| gpt-oss-20b | 21B / 3.6B MoE | MXFP4 ≈ 12.8 GB | Strong, with a small KV cache, but as tight as Flint on 18GB. |
+| Gemma 4 26B-A4B | 25B / 3.8B MoE | IQ3_XXS ≈ 11.2 GB | Fits only at 3-bit. |
+| Qwen 3.5 9B (dense) | 9B / 9B | Q4 ≈ 6 GB | The most headroom. Slower per token, because every parameter is active. |
+
+All the figures above are vendor-reported or from single third-party guides. Run each one through
+`flint-eval --label <name>` (see docs/setup/flint-server.md, "Using a different local model").
+
 ## Sources
 
 - [unsloth/flint-GGUF](https://huggingface.co/unsloth/flint-GGUF) and the [Unsloth Flint guide](https://unsloth.ai/docs/models/flint)

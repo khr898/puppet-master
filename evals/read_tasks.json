@@ -55,7 +55,7 @@
   },
   {
     "id": "managed-pid-check",
-    "paths": ["src/flint_bridge/lifecycle.py:137-143"],
+    "paths": ["src/flint_bridge/lifecycle.py:141-147"],
     "question": "How does managed_pid make sure the process is the llama-server this bridge started?",
     "must_mention": ["binary", "model"]
   },
@@ -125,7 +125,7 @@
   {
     "id": "find-managed-pid-check",
     "paths": ["src/flint_bridge/*.py"],
-    "baseline_paths": ["src/flint_bridge/lifecycle.py:137-143"],
+    "baseline_paths": ["src/flint_bridge/lifecycle.py:141-147"],
     "question": "How does managed_pid make sure the process is the llama-server this bridge started?",
     "must_mention": ["binary", "model"]
   }

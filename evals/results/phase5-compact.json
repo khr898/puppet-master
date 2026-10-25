@@ -1,0 +1,557 @@
+{
+  "summary": {
+    "read": {
+      "n": 20,
+      "correct_pct": 65.0,
+      "avg_claims_kept": 1.8,
+      "avg_stripped": 0.15,
+      "unverifiable": 0
+    },
+    "write": {
+      "n": 7,
+      "check_pass_pct": 85.71428571428571
+    },
+    "speed": {
+      "tok_per_s": 24.358657358345518,
+      "avg_reasoning_tokens": 0.0
+    },
+    "memory": {
+      "peak_rss_gb": 6.79
+    },
+    "savings": {
+      "read": {
+        "baseline": 10480,
+        "with_flint": 9040,
+        "saved": 1440,
+        "saved_pct": 13.740458015267176
+      },
+      "write": {
+        "baseline": 11743,
+        "with_flint": 1121,
+        "saved": 10622,
+        "saved_pct": 90.45388742229413
+      },
+      "all": {
+        "baseline": 22223,
+        "with_flint": 10161,
+        "saved": 12062,
+        "saved_pct": 54.27710030148945
+      }
+    },
+    "run": {
+      "errors": 1
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 459,
+        "with_flint": 570,
+        "saved": -111,
+        "verify": 38
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 103,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.126849959000538
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 459,
+        "with_flint": 548,
+        "saved": -89,
+        "verify": 17
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 89,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.0692715830009547
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 293,
+        "with_flint": 105,
+        "saved": 188,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 95,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.121972167005879
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 383,
+        "with_flint": 96,
+        "saved": 287,
+        "verify": 21
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.2092383339986554
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 394,
+        "with_flint": 245,
+        "saved": 149,
+        "verify": 105
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 220,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.143499707999581
+    },
+    {
+      "id": "log-outcomes",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 296,
+        "with_flint": 557,
+        "saved": -261,
+        "verify": 79
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 250,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.424022082996089
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 790,
+        "with_flint": 220,
+        "saved": 570,
+        "verify": 107
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 205,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.846305667000706
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 342,
+        "with_flint": 112,
+        "saved": 230,
+        "verify": 18
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 173,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.052465417000349
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 1853,
+        "saved": -111,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 98,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.4553194170002826
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 82,
+        "with_flint": 236,
+        "saved": -154,
+        "verify": 97
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 2,
+      "unverifiable": false,
+      "tokens_out": 295,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.736298208001244
+    },
+    {
+      "id": "find-cap-protected-keys",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 459,
+        "with_flint": 206,
+        "saved": 253,
+        "verify": 38
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 253,
+        "shown_tokens": 2919,
+        "total_tokens": 34730
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 169,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.674843084001623
+    },
+    {
+      "id": "find-est-tokens",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 459,
+        "with_flint": 630,
+        "saved": -171,
+        "verify": 34
+      },
+      "focus": {
+        "blocks": 18,
+        "of_blocks": 253,
+        "shown_tokens": 2945,
+        "total_tokens": 34730
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 136,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.138164624993806
+    },
+    {
+      "id": "find-give-up-threshold",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 293,
+        "with_flint": 196,
+        "saved": 97,
+        "verify": 72
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 253,
+        "shown_tokens": 2496,
+        "total_tokens": 34730
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 166,
+      "reasoning_tokens": 0,
+      "model_seconds": 9.490183458998217
+    },
+    {
+      "id": "find-budget-headroom",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 383,
+        "with_flint": 126,
+        "saved": 257,
+        "verify": 32
+      },
+      "focus": {
+        "blocks": 5,
+        "of_blocks": 253,
+        "shown_tokens": 477,
+        "total_tokens": 34730
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 93,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.3152887079995708
+    },
+    {
+      "id": "find-failure-limits",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 394,
+        "with_flint": 207,
+        "saved": 187,
+        "verify": 62
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 253,
+        "shown_tokens": 1989,
+        "total_tokens": 34730
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 145,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.949987833002524
+    },
+    {
+      "id": "find-log-outcomes",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 296,
+        "with_flint": 515,
+        "saved": -219,
+        "verify": 58
+      },
+      "focus": {
+        "blocks": 16,
+        "of_blocks": 253,
+        "shown_tokens": 2927,
+        "total_tokens": 34730
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 208,
+      "reasoning_tokens": 0,
+      "model_seconds": 11.782518833999347
+    },
+    {
+      "id": "find-config-defaults",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 790,
+        "with_flint": 268,
+        "saved": 522,
+        "verify": 107
+      },
+      "focus": {
+        "blocks": 12,
+        "of_blocks": 253,
+        "shown_tokens": 2977,
+        "total_tokens": 34730
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 232,
+      "reasoning_tokens": 0,
+      "model_seconds": 12.137957416998688
+    },
+    {
+      "id": "find-samples-cap",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 342,
+        "with_flint": 165,
+        "saved": 177,
+        "verify": 18
+      },
+      "focus": {
+        "blocks": 17,
+        "of_blocks": 253,
+        "shown_tokens": 2952,
+        "total_tokens": 34730
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 151,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.27852954199625
+    },
+    {
+      "id": "find-decided-outcomes",
+      "error": null,
+      "correct": false,
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 1875,
+        "saved": -133,
+        "verify": 36
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 253,
+        "shown_tokens": 2103,
+        "total_tokens": 34730
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 92,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.25296262500342
+    },
+    {
+      "id": "find-managed-pid-check",
+      "error": null,
+      "correct": true,
+      "savings": {
+        "baseline": 82,
+        "with_flint": 310,
+        "saved": -228,
+        "verify": 129
+      },
+      "focus": {
+        "blocks": 19,
+        "of_blocks": 253,
+        "shown_tokens": 2921,
+        "total_tokens": 34730
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 208,
+      "reasoning_tokens": 0,
+      "model_seconds": 11.75780854200275
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 65,
+        "with_flint": 151,
+        "saved": -86,
+        "baseline_out": 10
+      },
+      "tokens_out": 121,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.3154579999973066
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 78,
+        "with_flint": 142,
+        "saved": -64,
+        "baseline_out": 14
+      },
+      "tokens_out": 126,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.093318833001831
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": "no_changes",
+      "passed": false,
+      "savings": {
+        "baseline": 10,
+        "with_flint": 16,
+        "saved": -6,
+        "baseline_out": 0
+      },
+      "tokens_out": 169,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.025197834002029
+    },
+    {
+      "id": "roman-numerals",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 557,
+        "with_flint": 249,
+        "saved": 308,
+        "baseline_out": 109
+      },
+      "tokens_out": 263,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.988789041999553
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 217,
+        "with_flint": 178,
+        "saved": 39,
+        "baseline_out": 41
+      },
+      "tokens_out": 144,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.470769083003688
+    },
+    {
+      "id": "big-fahrenheit",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5358,
+        "with_flint": 183,
+        "saved": 5175,
+        "baseline_out": 10
+      },
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.8791009580018
+    },
+    {
+      "id": "big-add-kelvin",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5458,
+        "with_flint": 202,
+        "saved": 5256,
+        "baseline_out": 30
+      },
+      "tokens_out": 121,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.493514833004156
+    }
+  ]
+}

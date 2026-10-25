@@ -1,0 +1,577 @@
+{
+  "summary": {
+    "read": {
+      "n": 20,
+      "correct_pct": 85.0,
+      "avg_claims_kept": 1.65,
+      "avg_stripped": 0.4,
+      "unverifiable": 0
+    },
+    "write": {
+      "n": 7,
+      "check_pass_pct": 85.71428571428571
+    },
+    "speed": {
+      "tok_per_s": 26.366302767824994,
+      "avg_reasoning_tokens": 0.0
+    },
+    "memory": {
+      "peak_rss_gb": null
+    },
+    "savings": {
+      "read": {
+        "baseline": 10696,
+        "with_flint": 4509,
+        "saved": 6187,
+        "saved_pct": 57.844053851907255
+      },
+      "write": {
+        "baseline": 11803,
+        "with_flint": 1293,
+        "saved": 10510,
+        "saved_pct": 89.04515801067525
+      },
+      "all": {
+        "baseline": 22499,
+        "with_flint": 5802,
+        "saved": 16697,
+        "saved_pct": 74.21218720832037
+      }
+    },
+    "run": {
+      "errors": 0
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": null,
+      "correct": true,
+      "answer": "The keys that cap() never removes are error, patch_id, patch_path, passed and applied.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 114,
+        "saved": 345,
+        "verify": 38
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 108,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.3854900839942275
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": false,
+      "answer": "est_tokens estimates token count by dividing string length by 4 and rounding up.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 548,
+        "saved": -89,
+        "verify": 17
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 89,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.00794925000082
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "After 2 failed attempts, give_up returns True.",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 171,
+        "saved": 122,
+        "verify": 72
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 160,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.553271500000847
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "The budget module keeps 512 tokens of headroom free in the context window.",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 96,
+        "saved": 287,
+        "verify": 21
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.195457374997204
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "The maximum number of failure lines extract_failures returns is 20, and the maximum length of each line is 200 characters.",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 187,
+        "saved": 207,
+        "verify": 62
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 161,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.826923957996769
+    },
+    {
+      "id": "log-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "The accepted outcome values are \"ok\", \"error\", \"check_failed\", \"staged\", \"applied\", \"rejected\", \"miss\", \"offline\", and \"over_budget\".",
+      "savings": {
+        "baseline": 296,
+        "with_flint": 58,
+        "saved": 238,
+        "verify": 0
+      },
+      "focus": null,
+      "claims": 0,
+      "stripped": 2,
+      "unverifiable": false,
+      "tokens_out": 294,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.298372165998444
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "answer": "The default values are chunk_tokens = 10000, max_chunks = 8 and write_max_tokens = 6000.",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 236,
+        "saved": 684,
+        "verify": 121
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 204,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.37043208299292
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": true,
+      "answer": "The samples folder can grow up to a total size of 200 MB (MAX_BYTES = 200 * 1024 * 1024) before oldest day files are deleted, starting with the oldest files, but never the file just written. The deletion loop iterates over sorted files excluding the last one, and deletes files while the total size is <= MAX_BYTES.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 244,
+        "saved": 98,
+        "verify": 60
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 288,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.237363500003994
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "The outcomes that count as decided when computing the accept rate are applied, rejected, miss and check_failed.",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 124,
+        "saved": 1618,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 106,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.320670375003829
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": false,
+      "answer": "managed_pid verifies the process by reading its pid and checking the command line, as shown in /path/to/puppet-master/src/flint_bridge/lifecycle.py, line 141, where the function is defined.",
+      "savings": {
+        "baseline": 60,
+        "with_flint": 217,
+        "saved": -157,
+        "verify": 41
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 126,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.065269459002593
+    },
+    {
+      "id": "find-cap-protected-keys",
+      "error": null,
+      "correct": true,
+      "answer": "The protected keys are error, patch_id, patch_path, passed and applied.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 131,
+        "saved": 328,
+        "verify": 38
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2919,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 108,
+      "reasoning_tokens": 0,
+      "model_seconds": 8.875621708000835
+    },
+    {
+      "id": "find-est-tokens",
+      "error": null,
+      "correct": false,
+      "answer": "The token estimate is based on the length of the string in characters divided by 4, rounded up. For example, a string of 8 characters yields 2 tokens, and a string of 9 characters yields 3 tokens.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 660,
+        "saved": -201,
+        "verify": 34
+      },
+      "focus": {
+        "blocks": 18,
+        "of_blocks": 254,
+        "shown_tokens": 2948,
+        "total_tokens": 35327
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 193,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.662274707996403
+    },
+    {
+      "id": "find-give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "After 2 failed attempts, give_up returns True.",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 118,
+        "saved": 175,
+        "verify": 36
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2496,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 89,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.604315500000666
+    },
+    {
+      "id": "find-budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "The budget module keeps 512 tokens of headroom free in the context window.",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 116,
+        "saved": 267,
+        "verify": 21
+      },
+      "focus": {
+        "blocks": 5,
+        "of_blocks": 254,
+        "shown_tokens": 477,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 86,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.0955727500040666
+    },
+    {
+      "id": "find-failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "The maximum number of failure lines extract_failures returns is 20, and the maximum length of each line is 200 characters.",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 207,
+        "saved": 187,
+        "verify": 62
+      },
+      "focus": {
+        "blocks": 12,
+        "of_blocks": 254,
+        "shown_tokens": 1862,
+        "total_tokens": 35327
+      },
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 161,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.741271624996443
+    },
+    {
+      "id": "find-log-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "The outcome values accepted by log_call are \"ok\", \"error\", \"check_failed\", \"staged\", \"applied\", \"rejected\", \"miss\", \"offline\", and \"over_budget\".",
+      "savings": {
+        "baseline": 296,
+        "with_flint": 512,
+        "saved": -216,
+        "verify": 126
+      },
+      "focus": {
+        "blocks": 16,
+        "of_blocks": 254,
+        "shown_tokens": 2927,
+        "total_tokens": 35327
+      },
+      "claims": 6,
+      "stripped": 5,
+      "unverifiable": false,
+      "tokens_out": 918,
+      "reasoning_tokens": 0,
+      "model_seconds": 26.71050383400143
+    },
+    {
+      "id": "find-config-defaults",
+      "error": null,
+      "correct": true,
+      "answer": "The default values are chunk_tokens = 10000, max_chunks = 8 and write_max_tokens = 6000.",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 255,
+        "saved": 665,
+        "verify": 121
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2980,
+        "total_tokens": 35327
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 207,
+      "reasoning_tokens": 0,
+      "model_seconds": 11.287348458004999
+    },
+    {
+      "id": "find-samples-cap",
+      "error": null,
+      "correct": true,
+      "answer": "The samples folder is bounded by MAX_BYTES = 200 * 1024 * 1024 (200 MB) before old day files are deleted, and the oldest files are deleted first, but never the file just written.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 165,
+        "saved": 177,
+        "verify": 18
+      },
+      "focus": {
+        "blocks": 17,
+        "of_blocks": 254,
+        "shown_tokens": 2953,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 152,
+      "reasoning_tokens": 0,
+      "model_seconds": 9.98958933299582
+    },
+    {
+      "id": "find-decided-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "The outcomes that count as decided when computing the accept rate are \"applied\", \"rejected\", \"miss\", and \"check_failed\".",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 149,
+        "saved": 1593,
+        "verify": 36
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2103,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 114,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.460772625003301
+    },
+    {
+      "id": "find-managed-pid-check",
+      "error": null,
+      "correct": true,
+      "answer": "managed_pid verifies the pid in the Flint pidfile is alive and that its full command line contains both the started server binary name and the started model name before returning it.",
+      "savings": {
+        "baseline": 60,
+        "with_flint": 201,
+        "saved": -141,
+        "verify": 41
+      },
+      "focus": {
+        "blocks": 19,
+        "of_blocks": 254,
+        "shown_tokens": 2922,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 142,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.044068834002246
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 65,
+        "with_flint": 151,
+        "saved": -86,
+        "baseline_out": 10
+      },
+      "tokens_out": 126,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.3537896659981925
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 78,
+        "with_flint": 142,
+        "saved": -64,
+        "baseline_out": 14
+      },
+      "tokens_out": 125,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.942335749998165
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": null,
+      "passed": false,
+      "savings": {
+        "baseline": 35,
+        "with_flint": 188,
+        "saved": -153,
+        "baseline_out": 5
+      },
+      "tokens_out": 91,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.228982582993922
+    },
+    {
+      "id": "roman-numerals",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 592,
+        "with_flint": 256,
+        "saved": 336,
+        "baseline_out": 116
+      },
+      "tokens_out": 270,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.907570082999882
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 217,
+        "with_flint": 178,
+        "saved": 39,
+        "baseline_out": 41
+      },
+      "tokens_out": 142,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.266458333004266
+    },
+    {
+      "id": "big-fahrenheit",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5358,
+        "with_flint": 181,
+        "saved": 5177,
+        "baseline_out": 10
+      },
+      "tokens_out": 87,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.4962663330006762
+    },
+    {
+      "id": "big-add-kelvin",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5458,
+        "with_flint": 197,
+        "saved": 5261,
+        "baseline_out": 30
+      },
+      "tokens_out": 114,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.112469625004451
+    }
+  ]
+}
