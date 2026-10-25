@@ -1,0 +1,577 @@
+{
+  "summary": {
+    "read": {
+      "n": 20,
+      "correct_pct": 60.0,
+      "avg_claims_kept": 1.7,
+      "avg_stripped": 0.6,
+      "unverifiable": 0
+    },
+    "write": {
+      "n": 7,
+      "check_pass_pct": 71.42857142857143
+    },
+    "speed": {
+      "tok_per_s": 32.629818143006965,
+      "avg_reasoning_tokens": 0.0
+    },
+    "memory": {
+      "peak_rss_gb": 9.37
+    },
+    "savings": {
+      "read": {
+        "baseline": 10740,
+        "with_flint": 8286,
+        "saved": 2454,
+        "saved_pct": 22.849162011173185
+      },
+      "write": {
+        "baseline": 11408,
+        "with_flint": 914,
+        "saved": 10494,
+        "saved_pct": 91.98807854137448
+      },
+      "all": {
+        "baseline": 22148,
+        "with_flint": 9200,
+        "saved": 12948,
+        "saved_pct": 58.46126061043886
+      }
+    },
+    "run": {
+      "errors": 2
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": null,
+      "correct": false,
+      "answer": "PROTECTED",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 560,
+        "saved": -101,
+        "verify": 38
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 113,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.066281916995649
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": false,
+      "answer": "est_tokens estimates the number of tokens in a string by dividing the length of the string by 4 and rounding up.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 586,
+        "saved": -127,
+        "verify": 34
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 180,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.0829688340018038
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "give_up returns True after 2 failed attempts.",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 102,
+        "saved": 191,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 108,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.6630862079982762
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "The budget module keeps 512 tokens of headroom free in the context window.",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 82,
+        "saved": 301,
+        "verify": 21
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 82,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.3860662910010433
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "20 and 200",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 85,
+        "saved": 309,
+        "verify": 31
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 3,
+      "unverifiable": false,
+      "tokens_out": 318,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.066823957997258
+    },
+    {
+      "id": "log-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "The log_call function accepts outcome values from the OUTCOMES set: ok, error, check_failed, staged, applied, rejected, miss, offline, over_budget.",
+      "savings": {
+        "baseline": 296,
+        "with_flint": 180,
+        "saved": 116,
+        "verify": 75
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 312,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.809248375000607
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "answer": "chunk_tokens, max_chunks and write_max_tokens have default values 10000, 8 and 6000 respectively",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 224,
+        "saved": 696,
+        "verify": 121
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 256,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.717171374999452
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": false,
+      "answer": "The samples folder can grow up to MAX_BYTES bytes before files are deleted, and the oldest day files are deleted first.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 603,
+        "saved": -261,
+        "verify": 138
+      },
+      "focus": null,
+      "claims": 4,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 303,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.84315166700253
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": false,
+      "answer": "applied and rejected",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 1845,
+        "saved": -103,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 191,
+      "reasoning_tokens": 0,
+      "model_seconds": 8.108116249997693
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": true,
+      "answer": "The managed_pid function checks that the process's command line includes both the binary name (sc.binary.name) and the model name (sc.model.name) from the ServerConfig, ensuring it matches the llama-server started by the bridge.",
+      "savings": {
+        "baseline": 82,
+        "with_flint": 339,
+        "saved": -257,
+        "verify": 170
+      },
+      "focus": null,
+      "claims": 4,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 351,
+      "reasoning_tokens": 0,
+      "model_seconds": 5.781773624999914
+    },
+    {
+      "id": "find-cap-protected-keys",
+      "error": null,
+      "correct": false,
+      "answer": "PROTECTED",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 579,
+        "saved": -120,
+        "verify": 38
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2919,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 114,
+      "reasoning_tokens": 0,
+      "model_seconds": 8.796663749999425
+    },
+    {
+      "id": "find-est-tokens",
+      "error": null,
+      "correct": false,
+      "answer": "est_tokens estimates the number of tokens in a string by calculating the length of the string divided by 4 and then taking the ceiling of that value.",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 587,
+        "saved": -128,
+        "verify": 17
+      },
+      "focus": {
+        "blocks": 18,
+        "of_blocks": 254,
+        "shown_tokens": 2948,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 144,
+      "reasoning_tokens": 0,
+      "model_seconds": 8.719935333996546
+    },
+    {
+      "id": "find-give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "2",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 40,
+        "saved": 253,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2496,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 89,
+      "reasoning_tokens": 0,
+      "model_seconds": 7.192750999995042
+    },
+    {
+      "id": "find-budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "512",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 40,
+        "saved": 343,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 5,
+        "of_blocks": 254,
+        "shown_tokens": 477,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 98,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.619432500003313
+    },
+    {
+      "id": "find-failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "20 and 200",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 105,
+        "saved": 289,
+        "verify": 31
+      },
+      "focus": {
+        "blocks": 12,
+        "of_blocks": 254,
+        "shown_tokens": 1862,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 147,
+      "reasoning_tokens": 0,
+      "model_seconds": 6.434816833003424
+    },
+    {
+      "id": "find-log-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "ok, error, check_failed, staged, applied, rejected, miss, offline, over_budget",
+      "savings": {
+        "baseline": 296,
+        "with_flint": 60,
+        "saved": 236,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 16,
+        "of_blocks": 254,
+        "shown_tokens": 2927,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 158,
+      "reasoning_tokens": 0,
+      "model_seconds": 9.52426800000103
+    },
+    {
+      "id": "find-config-defaults",
+      "error": null,
+      "correct": false,
+      "answer": "chunk_tokens 16384, max_chunks 8, write_max_tokens 6000",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 1154,
+        "saved": -234,
+        "verify": 121
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2980,
+        "total_tokens": 35327
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 249,
+      "reasoning_tokens": 0,
+      "model_seconds": 10.972189583000727
+    },
+    {
+      "id": "find-samples-cap",
+      "error": null,
+      "correct": false,
+      "answer": "The samples folder is deleted when its total size exceeds MAX_BYTES, and the oldest day files are deleted first.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 683,
+        "saved": -341,
+        "verify": 178
+      },
+      "focus": {
+        "blocks": 17,
+        "of_blocks": 254,
+        "shown_tokens": 2953,
+        "total_tokens": 35327
+      },
+      "claims": 5,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 378,
+      "reasoning_tokens": 0,
+      "model_seconds": 12.807275999999547
+    },
+    {
+      "id": "find-decided-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "applied, rejected, miss, check_failed",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 207,
+        "saved": 1535,
+        "verify": 93
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2103,
+        "total_tokens": 35327
+      },
+      "claims": 2,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 264,
+      "reasoning_tokens": 0,
+      "model_seconds": 9.196604791999562
+    },
+    {
+      "id": "find-managed-pid-check",
+      "error": null,
+      "correct": true,
+      "answer": "managed_pid checks that the process ID read from the pidfile is alive, then verifies the command line of that process includes the binary name and model name from the server configuration.",
+      "savings": {
+        "baseline": 82,
+        "with_flint": 225,
+        "saved": -143,
+        "verify": 73
+      },
+      "focus": {
+        "blocks": 19,
+        "of_blocks": 254,
+        "shown_tokens": 2922,
+        "total_tokens": 35327
+      },
+      "claims": 2,
+      "stripped": 2,
+      "unverifiable": false,
+      "tokens_out": 334,
+      "reasoning_tokens": 0,
+      "model_seconds": 12.607617624998966
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 65,
+        "with_flint": 150,
+        "saved": -85,
+        "baseline_out": 10
+      },
+      "tokens_out": 148,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.727972583998053
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 138,
+        "with_flint": 149,
+        "saved": -11,
+        "baseline_out": 26
+      },
+      "tokens_out": 162,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.735788041994965
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": "no_changes",
+      "passed": false,
+      "savings": {
+        "baseline": 10,
+        "with_flint": 16,
+        "saved": -6,
+        "baseline_out": 0
+      },
+      "tokens_out": 142,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.4130644999968354
+    },
+    {
+      "id": "roman-numerals",
+      "error": "no_changes",
+      "passed": false,
+      "savings": {
+        "baseline": 12,
+        "with_flint": 18,
+        "saved": -6,
+        "baseline_out": 0
+      },
+      "tokens_out": 129,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.2181932919993415
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 217,
+        "with_flint": 181,
+        "saved": 36,
+        "baseline_out": 41
+      },
+      "tokens_out": 167,
+      "reasoning_tokens": 0,
+      "model_seconds": 2.8028899589990033
+    },
+    {
+      "id": "big-fahrenheit",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5358,
+        "with_flint": 177,
+        "saved": 5181,
+        "baseline_out": 10
+      },
+      "tokens_out": 105,
+      "reasoning_tokens": 0,
+      "model_seconds": 3.3598382499985746
+    },
+    {
+      "id": "big-add-kelvin",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5608,
+        "with_flint": 223,
+        "saved": 5385,
+        "baseline_out": 60
+      },
+      "tokens_out": 191,
+      "reasoning_tokens": 0,
+      "model_seconds": 4.720792332998826
+    }
+  ]
+}

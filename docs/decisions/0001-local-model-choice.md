@@ -64,7 +64,26 @@ None of these numbers come from an independent test of *this* job (citing exact 
   ("the keys listed in PROTECTED") plus run-to-run noise at temperature 0.2, not the model
   getting worse. `managed-pid-check` failed only because its line range had gone stale.
 
-## Candidates to bake off next (2026-10-25, not yet measured here)
+- **Mellum2.1 bake-off (2026-10-25, measured).** `JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF`
+  Q4_K_M (8.07 GB, sha256 verified), llama.cpp build 11854, same code and 27 tasks as
+  `flint-iq2xxs-p6`. Each run was on a hand-started server.
+
+  | | Flint UD-IQ2_XXS | Mellum2.1, thinking off (temperature 0) | Mellum2.1, thinking on (temperature 0.6) |
+  |---|---|---|---|
+  | read answer-correct | **90%** | 60% | 85% (3 unverifiable) |
+  | write check-pass | **86%** | 71% | 71% |
+  | avg model time per read | 7.8 s | 7.0 s | **89 s** (4,904 reasoning tokens) |
+  | Claude tokens saved | **74%** | 58% | 57% |
+  | model file | 11.9 GB | **8.1 GB** | 8.1 GB |
+
+  With thinking off, Mellum answers by reference and gets values wrong ("applied and rejected"),
+  and two writes returned no change. With thinking on its reads are nearly as good, but each one
+  takes over a minute and fills the 16K window (unverifiable outputs, a failed write), which is
+  too slow for delegation. **Flint stays the default.** Mellum's only advantage is about 4 GB less
+  memory. Peak RSS (Flint 1.6 GB, Mellum 9 GB) is not comparable: Flint's mapped weights don't
+  show up in RSS.
+
+## Candidates to bake off next (2026-10-25; Mellum2.1 measured above)
 
 "Loads only the parameters it needs" is what a MoE does *per token*: only the active experts are
 computed, so speed tracks active parameters. The whole file still has to sit in RAM to run at

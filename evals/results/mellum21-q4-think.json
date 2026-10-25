@@ -1,0 +1,572 @@
+{
+  "summary": {
+    "read": {
+      "n": 20,
+      "correct_pct": 85.0,
+      "avg_claims_kept": 1.15,
+      "avg_stripped": 0.55,
+      "unverifiable": 3
+    },
+    "write": {
+      "n": 7,
+      "check_pass_pct": 71.42857142857143
+    },
+    "speed": {
+      "tok_per_s": 59.0767305291317,
+      "avg_reasoning_tokens": 4904.333333333333
+    },
+    "memory": {
+      "peak_rss_gb": 8.88
+    },
+    "savings": {
+      "read": {
+        "baseline": 10740,
+        "with_flint": 3322,
+        "saved": 7418,
+        "saved_pct": 69.06890130353817
+      },
+      "write": {
+        "baseline": 11183,
+        "with_flint": 6163,
+        "saved": 5020,
+        "saved_pct": 44.889564517571316
+      },
+      "all": {
+        "baseline": 21923,
+        "with_flint": 9485,
+        "saved": 12438,
+        "saved_pct": 56.73493591205583
+      }
+    },
+    "run": {
+      "errors": 1
+    }
+  },
+  "reads": [
+    {
+      "id": "cap-protected-keys",
+      "error": "unverifiable_output",
+      "correct": false,
+      "answer": null,
+      "savings": {
+        "baseline": 459,
+        "with_flint": 467,
+        "saved": -8,
+        "verify": 0
+      },
+      "focus": null,
+      "claims": 0,
+      "stripped": 0,
+      "unverifiable": true,
+      "tokens_out": 11000,
+      "reasoning_tokens": 10261,
+      "model_seconds": 179.63847933400393
+    },
+    {
+      "id": "est-tokens",
+      "error": null,
+      "correct": true,
+      "answer": "math.ceil(len(s) / 4)",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 74,
+        "saved": 385,
+        "verify": 17
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 8008,
+      "reasoning_tokens": 6287,
+      "model_seconds": 129.9601479579942
+    },
+    {
+      "id": "give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "2",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 92,
+        "saved": 201,
+        "verify": 36
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 2171,
+      "reasoning_tokens": 1828,
+      "model_seconds": 35.34549154200067
+    },
+    {
+      "id": "budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "512",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 64,
+        "saved": 319,
+        "verify": 21
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 750,
+      "reasoning_tokens": 527,
+      "model_seconds": 12.891063708004367
+    },
+    {
+      "id": "failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "20 and 200",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 85,
+        "saved": 309,
+        "verify": 31
+      },
+      "focus": null,
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 1655,
+      "reasoning_tokens": 1236,
+      "model_seconds": 27.255215458004386
+    },
+    {
+      "id": "log-outcomes",
+      "error": "unverifiable_output",
+      "correct": false,
+      "answer": null,
+      "savings": {
+        "baseline": 296,
+        "with_flint": 304,
+        "saved": -8,
+        "verify": 0
+      },
+      "focus": null,
+      "claims": 0,
+      "stripped": 0,
+      "unverifiable": true,
+      "tokens_out": 11000,
+      "reasoning_tokens": 10184,
+      "model_seconds": 178.5124649989957
+    },
+    {
+      "id": "config-defaults",
+      "error": null,
+      "correct": true,
+      "answer": "chunk_tokens=10000, max_chunks=8 and write_max_tokens=6000",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 215,
+        "saved": 705,
+        "verify": 121
+      },
+      "focus": null,
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 2124,
+      "reasoning_tokens": 1379,
+      "model_seconds": 36.53861358400172
+    },
+    {
+      "id": "samples-cap",
+      "error": null,
+      "correct": true,
+      "answer": "The samples folder can grow up to 200 * 1024 * 1024 bytes (200 MB) before files are deleted, and the oldest files are deleted first.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 328,
+        "saved": 14,
+        "verify": 172
+      },
+      "focus": null,
+      "claims": 4,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 4936,
+      "reasoning_tokens": 3634,
+      "model_seconds": 80.48396720799792
+    },
+    {
+      "id": "decided-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "applied, rejected, miss and check_failed",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 180,
+        "saved": 1562,
+        "verify": 93
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 2068,
+      "reasoning_tokens": 1525,
+      "model_seconds": 38.63227724999888
+    },
+    {
+      "id": "managed-pid-check",
+      "error": null,
+      "correct": true,
+      "answer": "It checks that the command string contains the binary name and the model name.",
+      "savings": {
+        "baseline": 82,
+        "with_flint": 200,
+        "saved": -118,
+        "verify": 83
+      },
+      "focus": null,
+      "claims": 2,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 2668,
+      "reasoning_tokens": 2318,
+      "model_seconds": 42.42267433300003
+    },
+    {
+      "id": "find-cap-protected-keys",
+      "error": null,
+      "correct": true,
+      "answer": "error, patch_id, patch_path, passed and applied",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 121,
+        "saved": 338,
+        "verify": 38
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2919,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 9272,
+      "reasoning_tokens": 8482,
+      "model_seconds": 162.24031162600295
+    },
+    {
+      "id": "find-est-tokens",
+      "error": null,
+      "correct": true,
+      "answer": "math.ceil(len(s) / 4)",
+      "savings": {
+        "baseline": 459,
+        "with_flint": 86,
+        "saved": 373,
+        "verify": 17
+      },
+      "focus": {
+        "blocks": 18,
+        "of_blocks": 254,
+        "shown_tokens": 2948,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 1783,
+      "reasoning_tokens": 1426,
+      "model_seconds": 35.68510429200251
+    },
+    {
+      "id": "find-give-up-threshold",
+      "error": null,
+      "correct": true,
+      "answer": "2",
+      "savings": {
+        "baseline": 293,
+        "with_flint": 40,
+        "saved": 253,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2496,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 3833,
+      "reasoning_tokens": 3201,
+      "model_seconds": 69.1640342499959
+    },
+    {
+      "id": "find-budget-headroom",
+      "error": null,
+      "correct": true,
+      "answer": "512",
+      "savings": {
+        "baseline": 383,
+        "with_flint": 40,
+        "saved": 343,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 5,
+        "of_blocks": 254,
+        "shown_tokens": 477,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 1172,
+      "reasoning_tokens": 1029,
+      "model_seconds": 19.550984084002266
+    },
+    {
+      "id": "find-failure-limits",
+      "error": null,
+      "correct": true,
+      "answer": "20 and 200",
+      "savings": {
+        "baseline": 394,
+        "with_flint": 105,
+        "saved": 289,
+        "verify": 31
+      },
+      "focus": {
+        "blocks": 12,
+        "of_blocks": 254,
+        "shown_tokens": 1862,
+        "total_tokens": 35327
+      },
+      "claims": 1,
+      "stripped": 1,
+      "unverifiable": false,
+      "tokens_out": 3709,
+      "reasoning_tokens": 3219,
+      "model_seconds": 64.73014337499626
+    },
+    {
+      "id": "find-log-outcomes",
+      "error": "unverifiable_output",
+      "correct": false,
+      "answer": null,
+      "savings": {
+        "baseline": 296,
+        "with_flint": 304,
+        "saved": -8,
+        "verify": 0
+      },
+      "focus": null,
+      "claims": 0,
+      "stripped": 0,
+      "unverifiable": true,
+      "tokens_out": 11000,
+      "reasoning_tokens": 9568,
+      "model_seconds": 192.22894225000346
+    },
+    {
+      "id": "find-config-defaults",
+      "error": null,
+      "correct": true,
+      "answer": "10000, 8 and 6000",
+      "savings": {
+        "baseline": 920,
+        "with_flint": 44,
+        "saved": 876,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 15,
+        "of_blocks": 254,
+        "shown_tokens": 2980,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 3,
+      "unverifiable": false,
+      "tokens_out": 2860,
+      "reasoning_tokens": 1961,
+      "model_seconds": 54.34146854200662
+    },
+    {
+      "id": "find-samples-cap",
+      "error": null,
+      "correct": true,
+      "answer": "The samples folder can grow up to 200 * 1024 * 1024 bytes (200 MB) before files are deleted, and the oldest day files are deleted first.",
+      "savings": {
+        "baseline": 342,
+        "with_flint": 74,
+        "saved": 268,
+        "verify": 0
+      },
+      "focus": {
+        "blocks": 17,
+        "of_blocks": 254,
+        "shown_tokens": 2953,
+        "total_tokens": 35327
+      },
+      "claims": 0,
+      "stripped": 2,
+      "unverifiable": false,
+      "tokens_out": 10556,
+      "reasoning_tokens": 8041,
+      "model_seconds": 183.92019525100477
+    },
+    {
+      "id": "find-decided-outcomes",
+      "error": null,
+      "correct": true,
+      "answer": "applied, rejected, miss and check_failed",
+      "savings": {
+        "baseline": 1742,
+        "with_flint": 292,
+        "saved": 1450,
+        "verify": 159
+      },
+      "focus": {
+        "blocks": 13,
+        "of_blocks": 254,
+        "shown_tokens": 2103,
+        "total_tokens": 35327
+      },
+      "claims": 3,
+      "stripped": 0,
+      "unverifiable": false,
+      "tokens_out": 4153,
+      "reasoning_tokens": 3351,
+      "model_seconds": 73.37408570799744
+    },
+    {
+      "id": "find-managed-pid-check",
+      "error": null,
+      "correct": true,
+      "answer": "managed_pid, _read_pid, _ps, sc.binary.name, sc.model.name",
+      "savings": {
+        "baseline": 82,
+        "with_flint": 207,
+        "saved": -125,
+        "verify": 83
+      },
+      "focus": {
+        "blocks": 19,
+        "of_blocks": 254,
+        "shown_tokens": 2922,
+        "total_tokens": 35327
+      },
+      "claims": 2,
+      "stripped": 2,
+      "unverifiable": false,
+      "tokens_out": 9764,
+      "reasoning_tokens": 8476,
+      "model_seconds": 171.49215529099456
+    }
+  ],
+  "writes": [
+    {
+      "id": "average-empty",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 70,
+        "with_flint": 145,
+        "saved": -75,
+        "baseline_out": 11
+      },
+      "tokens_out": 4501,
+      "reasoning_tokens": 3854,
+      "model_seconds": 72.50370945900067
+    },
+    {
+      "id": "add-clamp",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 138,
+        "with_flint": 174,
+        "saved": -36,
+        "baseline_out": 26
+      },
+      "tokens_out": 1902,
+      "reasoning_tokens": 1669,
+      "model_seconds": 30.274160790999304
+    },
+    {
+      "id": "slugify-hyphens",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 80,
+        "with_flint": 144,
+        "saved": -64,
+        "baseline_out": 14
+      },
+      "tokens_out": 3783,
+      "reasoning_tokens": 3305,
+      "model_seconds": 60.82405333399947
+    },
+    {
+      "id": "roman-numerals",
+      "error": "unexpected_path",
+      "passed": false,
+      "savings": {
+        "baseline": 12,
+        "with_flint": 19,
+        "saved": -7,
+        "baseline_out": 0
+      },
+      "tokens_out": 2809,
+      "reasoning_tokens": 2221,
+      "model_seconds": 44.82537350000348
+    },
+    {
+      "id": "dedupe-order",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 217,
+        "with_flint": 175,
+        "saved": 42,
+        "baseline_out": 41
+      },
+      "tokens_out": 2290,
+      "reasoning_tokens": 2121,
+      "model_seconds": 36.232837750001636
+    },
+    {
+      "id": "big-fahrenheit",
+      "error": null,
+      "passed": true,
+      "savings": {
+        "baseline": 5358,
+        "with_flint": 190,
+        "saved": 5168,
+        "baseline_out": 10
+      },
+      "tokens_out": 9216,
+      "reasoning_tokens": 9209,
+      "model_seconds": 154.21642037499987
+    },
+    {
+      "id": "big-add-kelvin",
+      "error": "unverifiable_output",
+      "passed": false,
+      "savings": {
+        "baseline": 5308,
+        "with_flint": 5316,
+        "saved": -8,
+        "baseline_out": 0
+      },
+      "tokens_out": 21000,
+      "reasoning_tokens": 22105,
+      "model_seconds": 351.49863891700807
+    }
+  ]
+}
