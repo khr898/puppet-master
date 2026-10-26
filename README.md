@@ -33,7 +33,7 @@ All figures come from the saved runs in [evals/results](evals/results) and from 
 
 | | |
 |---|---|
-| Tests | **357 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
+| Tests | **355 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
 | Skipped | Port-binding tests, which skip themselves inside a sandbox that forbids binding a port |
 | Line coverage | **89%** of 1,847 statements (`pytest --cov`) |
 | Lint | `ruff check` and `ruff format --check` clean |
@@ -128,10 +128,7 @@ a new Code-tab session:
 
 ### 4. Turn it on in a project
 
-1. Copy the `## Flint delegation` section of
-   [docs/spec/claude-md-snippet.md](docs/spec/claude-md-snippet.md) into that project's `CLAUDE.md`
-   (or `AGENTS.md`). It tells the agent what to delegate and what to keep.
-2. Add a `puppet-master.toml` with the project's check commands. This repo's own file is an example:
+1. Add a `puppet-master.toml` with the project's check commands. This repo's own file is an example:
 
    ```toml
    [check]
@@ -143,7 +140,7 @@ a new Code-tab session:
    ```
 
    Only commands listed here can run, as argument lists with no shell.
-3. Add `.puppet-master/` to the project's `.gitignore`. Logs, staged patches and attempt counts live
+2. Add `.puppet-master/` to the project's `.gitignore`. Logs, staged patches and attempt counts live
    there.
 
 ### 5. Verify
@@ -269,7 +266,7 @@ only when applied, so rejected and failed delegations count against the worker. 
 
 ```bash
 uv sync
-uv run pytest -q                      # 357 tests; live tests are deselected
+uv run pytest -q                      # 355 tests; live tests are deselected
 uv run pytest -m live                 # needs a model server on :8000
 uv run ruff check . && uv run ruff format --check .
 ```

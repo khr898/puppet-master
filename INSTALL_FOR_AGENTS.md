@@ -42,7 +42,7 @@ uv sync
 uv run pytest -q
 ```
 
-**Verify:** `uv sync` ends without error and pytest reports `passed` (about 357 passed, 22 skipped
+**Verify:** `uv sync` ends without error and pytest reports `passed` (about 355 passed, 22 skipped
 is normal; the skips are tests that need a free network port). If the user's sandbox blocks uv's
 cache, prefix commands with `UV_CACHE_DIR=.uv-cache`.
 
@@ -149,10 +149,7 @@ servers.
 
 In the **target project** (not this repo):
 
-1. Append the `## Flint delegation` section from
-   [docs/spec/claude-md-snippet.md](docs/spec/claude-md-snippet.md) to the project's `CLAUDE.md` (or
-   `AGENTS.md`). Replace the check commands at the bottom with the project's real ones.
-2. Create `puppet-master.toml` in the project root:
+1. Create `puppet-master.toml` in the project root:
 
    ```toml
    [check]
@@ -172,7 +169,7 @@ In the **target project** (not this repo):
 
    Commands are argument lists with no shell, for example `["npm", "test"]`. Keep `chunk_tokens`
    well below `ctx`.
-3. Add `.puppet-master/` to the project's `.gitignore`.
+2. Add `.puppet-master/` to the project's `.gitignore`.
 
 **Verify:** the project's own test command, run exactly as written in `puppet-master.toml`, passes
 on a clean checkout. A failing baseline makes every patch check fail.

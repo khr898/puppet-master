@@ -153,10 +153,8 @@ Flint has a 16,384-token window, and each call needs room for the prompt, the fi
 
 1. The `FastMCP(name, instructions=...)` server instructions carry the delegate-first policy, in about 150 words.
 2. Tool descriptions are written as directives, e.g. *"USE THIS FIRST to read or summarize files >200 lines or logs."*
-3. **Per-project `CLAUDE.md`**: each project that uses Flint gets a `## Flint delegation` section in its own `CLAUDE.md`, copied from the template in `docs/spec/claude-md-snippet.md`. Nothing goes in the global `~/.claude/CLAUDE.md`, so delegation happens only in projects that opt in, and each project can list its own check commands. The section restates the policy:
-   - **Delegate:** bulk reads, summaries, boilerplate, tests from a spec, docstrings, mechanical refactors, drafts.
-   - **Keep:** planning, architecture, subtle bugs, security-sensitive code, and anything under about 200 output tokens.
-   - **Skipping Flint:** when Claude doesn't delegate, it says why in one line.
+
+The server instructions are the only place the policy lives, so no project needs a `CLAUDE.md` section. Delegation: bulk reads, summaries, boilerplate, tests from a spec, docstrings, mechanical refactors, drafts. Keep: planning, architecture, subtle bugs, security-sensitive code, and anything under about 200 output tokens.
 
 ### Call log
 
@@ -200,7 +198,7 @@ src/puppet_master/
   report.py        → 500-token cap, truncation
   log.py, stats.py → JSONL call log + summary CLI
 tests/             → unit tests (mocked LLM) + tests/live/ (marker: live)
-docs/spec/         → this spec + CLAUDE.md snippet
+docs/spec/         → this spec
 puppet-master.toml         → per-project config (allow-list, budgets) — lives in target project
 .puppet-master/            → staging/ + log.jsonl (gitignored, in target project)
 ```
@@ -308,4 +306,4 @@ The samples stay local, `.puppet-master/` is gitignored, and the files are cappe
 2. ~~Large files in `puppet_write`~~ **Resolved (revised 2026-10-25):** files over ~2k tokens are edited by region (see Write pipeline). See [ADR 0003](../decisions/0003-bm25-focus-and-region-edits.md).
 3. ~~`puppet_ask` scope~~ **Resolved:** `puppet_ask` is for drafts and prose only. Its description sends questions about code to `puppet_read`, and its output is always `verified: false`.
 4. ~~The Flint model and llama.cpp PR~~ **Resolved:** PRs #30928 and #30929 were merged 2026-10-21, so llama.cpp is built from master. The model is `unsloth/flint-GGUF` `UD-IQ2_XXS` (11.86 GB), because Q2_K_XL and IQ2_M don't fit in 18GB. See [docs/setup/flint-server.md](../setup/flint-server.md).
-5. ~~Where `CLAUDE.md` goes~~ **Resolved:** per project. See Policy layers.
+5. ~~Where the delegation policy goes~~ **Resolved:** in the server instructions. See Policy layers.

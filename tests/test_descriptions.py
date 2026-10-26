@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 from puppet_master import server
@@ -46,24 +45,8 @@ def test_instructions_state_the_budgets_and_mandatory_checks():
         assert phrase in server.INSTRUCTIONS
 
 
-SNIPPET = ROOT / "docs" / "spec" / "claude-md-snippet.md"
-
-
-def test_snippet_says_to_stop_flint_when_done_and_never_start_it():
-    text = SNIPPET.read_text()
-    assert "**Stop Flint when you are done:**" in text
-    assert 'Never call `puppet_server("start")`' in text
-
-
 def test_project_flint_toml_has_test_and_lint_checks():
     cfg = load_config(ROOT)
     assert cfg.check_default == "test"
     assert cfg.check_commands["test"] == ["uv", "run", "pytest", "-q", "-x"]
     assert cfg.check_commands["lint"] == ["uv", "run", "ruff", "check", "."]
-
-
-def test_snippet_check_commands_match_puppet_master_toml():
-    text = SNIPPET.read_text()
-    assert "## Flint delegation" in text
-    for name, argv in load_config(ROOT).check_commands.items():
-        assert re.search(rf"^- {name}: `{re.escape(' '.join(argv))}`$", text, re.M), name
