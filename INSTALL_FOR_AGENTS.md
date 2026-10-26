@@ -30,8 +30,9 @@ uv --version          # https://docs.astral.sh/uv/
 git --version
 ```
 
-Developed and tested on macOS. Linux is untested; the memory preflight for the managed llama.cpp
-server reads macOS tools, so on Linux use an unmanaged server (step 2, options B to D).
+Developed and tested on macOS. Linux is supported by design (memory is read from `/proc/meminfo`)
+but has not been run end to end; the same goes for every server except llama.cpp. After setup, run
+`uv run puppet-eval --label <name>` if you can, and tell the user which parts you could not verify.
 
 ## Step 1: Install
 
@@ -84,7 +85,7 @@ curl -s "$PUPPET_BASE_URL/v1/models"
 lists the model. Do not create `~/.puppet-master/server.toml` for these servers.
 
 For Ollama, the default context window is small. Ask the user to set a larger one (for example
-`OLLAMA_CONTEXT_LENGTH=16384` for the server process) and use that same number as `ctx` in step 4.
+`OLLAMA_CONTEXT_LENGTH=16384`; for a Linux systemd service set it with `sudo systemctl edit ollama`, not a shell export, and ask the user before using `sudo`) and use that same number as `ctx` in step 4.
 
 ### C. OpenRouter
 

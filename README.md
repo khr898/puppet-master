@@ -85,7 +85,7 @@ patches that pass. No larger or higher-precision model has been benchmarked yet.
 
 An AI agent doing this setup should follow [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md).
 
-You need Python 3.11+ (developed and tested on macOS; Linux is untested), [`uv`](https://docs.astral.sh/uv/), `git`, and a model server
+You need Python 3.11+ (developed and tested on macOS; Linux and non-llama.cpp servers follow documented behavior but are untested, see [docs/setup.md](docs/setup.md)), [`uv`](https://docs.astral.sh/uv/), `git`, and a model server
 (step 2).
 
 ### 1. Get the code

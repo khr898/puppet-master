@@ -30,6 +30,29 @@ def _strip_think(content: str) -> tuple[str, str]:
     return _THINK.sub("", content).strip(), removed
 
 
+# Servers that rejected an extension field, keyed by base URL: how many degradations to skip.
+_SKIP: dict[str, int] = {}
+_REJECTED = (400, 422)
+
+
+async def _post(client: httpx.AsyncClient, cfg: Config, payload: dict) -> dict:
+    """POST the request. A server that answers 400/422 is retried without the fields only some
+    servers accept: first llama.cpp's cache_prompt, then response_format (replies are validated
+    in code anyway). What a server rejected is remembered so later calls skip the failed tries."""
+    steps = [payload, {k: v for k, v in payload.items() if k != "cache_prompt"}]
+    if "response_format" in payload:
+        steps.append({k: v for k, v in steps[1].items() if k != "response_format"})
+    first = min(_SKIP.get(cfg.base_url, 0), len(steps) - 1)
+    for n in range(first, len(steps)):
+        resp = await client.post(f"{cfg.base_url}/v1/chat/completions", json=steps[n])
+        if resp.status_code in _REJECTED and n < len(steps) - 1:
+            continue
+        resp.raise_for_status()
+        _SKIP[cfg.base_url] = n
+        return resp.json()
+    raise AssertionError("unreachable")
+
+
 def _client(cfg: Config, timeout: float) -> httpx.AsyncClient:
     """An HTTP client; PUPPET_API_KEY (env only, never a file) is sent as a Bearer token."""
     key = os.environ.get("PUPPET_API_KEY")
@@ -45,15 +68,16 @@ async def complete(
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "temperature": cfg.temperature,
         "max_tokens": max_tokens,
-        "cache_prompt": True,
+        "cache_prompt": True,  # llama.cpp only; dropped below for servers that reject it
     }
     if schema is not None:
-        payload["response_format"] = {"type": "json_schema", "json_schema": {"schema": schema}}
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "response", "schema": schema},
+        }
     try:
         async with _client(cfg, cfg.timeout_s) as client:
-            resp = await client.post(f"{cfg.base_url}/v1/chat/completions", json=payload)
-            resp.raise_for_status()
-        body = resp.json()
+            body = await _post(client, cfg, payload)
         message = body["choices"][0]["message"]
         content = message["content"] or ""
     except (httpx.TransportError, httpx.HTTPStatusError, ValueError, KeyError, IndexError) as e:

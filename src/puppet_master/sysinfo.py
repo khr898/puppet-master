@@ -48,6 +48,20 @@ def _run(cmd: list[str]) -> str | None:
         return None
 
 
+def parse_meminfo(text: str) -> float | None:
+    """GB Linux reports as MemAvailable in /proc/meminfo (free plus reclaimable cache)."""
+    match = re.search(r"^MemAvailable:\s+(\d+)\s*kB", text, re.MULTILINE)
+    return int(match.group(1)) * 1024 / 1e9 if match else None
+
+
+def _meminfo() -> str:
+    try:
+        with open("/proc/meminfo") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
 def available_gb() -> float | None:
     """Memory we can load a model into, in GB. None if neither measurement works.
 
@@ -59,6 +73,7 @@ def available_gb() -> float | None:
     readings = [
         parse_vm_stat(_run(["vm_stat"]) or ""),
         parse_memory_pressure(_run(["memory_pressure", "-Q"]) or ""),
+        parse_meminfo(_meminfo()),
     ]
     known = [r for r in readings if r is not None]
     return max(known) if known else None

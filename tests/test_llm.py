@@ -49,7 +49,10 @@ async def test_complete_sends_json_schema_response_format_when_schema_given():
     schema = {"type": "object", "properties": {"a": {"type": "integer"}}}
     await complete(CFG, "s", "u", max_tokens=10, schema=schema)
     sent = json.loads(route.calls.last.request.content)
-    assert sent["response_format"] == {"type": "json_schema", "json_schema": {"schema": schema}}
+    assert sent["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "response", "schema": schema},
+    }
     assert sent["cache_prompt"] is True
 
 
@@ -198,3 +201,60 @@ async def test_no_authorization_header_without_an_api_key(monkeypatch):
     route = respx.post(URL).mock(return_value=reply("x"))
     await complete(CFG, "s", "u", max_tokens=10)
     assert "authorization" not in route.calls.last.request.headers
+
+
+@pytest.fixture(autouse=True)
+def _forget_rejections():
+    from puppet_master import llm
+
+    llm._SKIP.clear()
+
+
+def _bodies(route) -> list[dict]:
+    return [json.loads(c.request.content) for c in route.calls]
+
+
+@respx.mock
+async def test_a_server_rejecting_cache_prompt_is_retried_without_it():
+    route = respx.post(URL).mock(side_effect=[httpx.Response(400, json={}), reply("ok")])
+    out = await complete(CFG, "s", "u", max_tokens=10)
+    first, second = _bodies(route)
+    assert out.text == "ok"
+    assert "cache_prompt" in first
+    assert "cache_prompt" not in second
+
+
+@respx.mock
+async def test_a_server_rejecting_response_format_gets_a_plain_request_last():
+    route = respx.post(URL).mock(
+        side_effect=[httpx.Response(422), httpx.Response(422), reply('{"a": 1}')]
+    )
+    out = await complete(CFG, "s", "u", max_tokens=10, schema={"type": "object"})
+    assert out.text == '{"a": 1}'
+    last = _bodies(route)[-1]
+    assert "cache_prompt" not in last
+    assert "response_format" not in last
+
+
+@respx.mock
+async def test_the_rejection_is_remembered_so_later_calls_send_once():
+    route = respx.post(URL).mock(side_effect=[httpx.Response(400), reply("a"), reply("b")])
+    await complete(CFG, "s", "u", max_tokens=10)
+    await complete(CFG, "s", "u", max_tokens=10)
+    assert route.call_count == 3
+    assert "cache_prompt" not in _bodies(route)[2]
+
+
+@respx.mock
+async def test_a_persistent_400_still_raises_offline():
+    respx.post(URL).mock(return_value=httpx.Response(400))
+    with pytest.raises(FlintOffline):
+        await complete(CFG, "s", "u", max_tokens=10)
+
+
+@respx.mock
+async def test_a_401_is_not_retried():
+    route = respx.post(URL).mock(return_value=httpx.Response(401))
+    with pytest.raises(FlintOffline):
+        await complete(CFG, "s", "u", max_tokens=10)
+    assert route.call_count == 1

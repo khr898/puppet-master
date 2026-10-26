@@ -7,7 +7,7 @@ OpenAI-compatible API, and a registration in your MCP client. An AI agent doing 
 ## 1. Install the server
 
 Requirements: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), `git`. Developed and tested on
-macOS; Linux is untested.
+macOS; see [Tested status](#2-pick-a-worker-model) for Linux and other servers.
 
 ```bash
 git clone https://github.com/khr898/puppet-master.git
@@ -51,14 +51,39 @@ best model your memory allows, then measure it (see [Measure a model](#6-measure
 **Things to match to the server:**
 
 - *Context window.* Set `ctx` in `puppet-master.toml` to what the server really gives the model.
-  Ollama defaults to a small window; raise it (for example `OLLAMA_CONTEXT_LENGTH=16384`).
-- *Structured output.* Requests ask for JSON-schema output. Servers with grammar-constrained decoding
-  (llama.cpp, vLLM) give the cleanest results; others still work because replies are validated in
-  code and a bad one is retried once.
+  Ollama's default window is small (4096 on current builds, 2048 on older ones) and the OpenAI-style
+  endpoint cannot change it per request, so set it on the server: `OLLAMA_CONTEXT_LENGTH=16384`. On a
+  Linux service install an exported shell variable does not reach the service; use
+  `sudo systemctl edit ollama` and add `Environment="OLLAMA_CONTEXT_LENGTH=16384"` under `[Service]`.
+- *Request fields.* Requests carry `response_format` (`json_schema` with a `name`, as OpenAI, OpenRouter,
+  LM Studio, vLLM and Ollama expect) plus llama.cpp's `cache_prompt`. A server that answers 400/422 is
+  retried without `cache_prompt`, then without `response_format`, and the choice is remembered for
+  the session. Replies are always validated in code, so a server that ignores the schema still works;
+  the cost is one extra retry on a malformed reply.
+- *Schema enforcement varies.* llama.cpp, vLLM, LM Studio and local Ollama (0.5+) constrain decoding
+  to the schema. Ollama Cloud accepts `json_schema` without enforcing it, and on OpenRouter
+  enforcement depends on the model and provider. If you need guaranteed enforcement on OpenRouter,
+  choose a model whose page lists structured outputs.
+- *OpenRouter routing.* By default a provider that lacks a parameter silently ignores it. Pass
+  `provider: {require_parameters: true}` only if you control the request (this server does not
+  expose it).
 - *Reasoning models.* Thinking tokens share the context window. Turn thinking off on the server where
   possible, or set `[budget] reasoning_reserve` so chunks leave room for it.
-- *Hosted APIs.* Every file the worker reads leaves your machine and each call is billed. Use a local
-  server for private code.
+- *Hosted APIs.* Every file the worker reads leaves your machine and each call is billed; check the
+  provider's data policy. Use a local server for private code.
+
+**Tested status.** The request and fallback logic is covered by unit tests against mocked HTTP. Only
+llama.cpp on macOS has been run end to end; Ollama, LM Studio, vLLM, mlx_lm, hosted APIs and Linux
+follow the vendors' documented OpenAI-compatible behavior and have not been run here. Run
+`uv run puppet-eval --label <name>` against your setup before relying on it.
+
+### Linux
+
+Nothing in the server is macOS-only. Memory for the managed-server check comes from
+`/proc/meminfo` (`MemAvailable`) on Linux and from `vm_stat` / `memory_pressure` on macOS; if it
+cannot be read the check is skipped. For a GPU, build llama.cpp with the backend for your hardware
+(CUDA, Vulkan or ROCm; see its build docs) and keep `gpu_layers` and `ctx` within VRAM. Ollama,
+vLLM and LM Studio need no changes.
 
 ## 3. Register the MCP server
 

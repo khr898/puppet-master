@@ -74,3 +74,19 @@ def test_available_gb_uses_whichever_measurement_works(monkeypatch):
     assert sysinfo.available_gb() == sysinfo.parse_memory_pressure(MEMORY_PRESSURE)
     fake_run(monkeypatch, {})
     assert sysinfo.available_gb() is None
+
+
+MEMINFO = """MemTotal:       32842224 kB
+MemFree:         1203456 kB
+MemAvailable:   20480000 kB
+Buffers:          123456 kB
+"""
+
+
+def test_linux_meminfo_reports_memavailable():
+    assert sysinfo.parse_meminfo(MEMINFO) == 20480000 * 1024 / 1e9
+
+
+def test_meminfo_without_memavailable_is_unknown():
+    assert sysinfo.parse_meminfo("MemTotal: 1 kB\n") is None
+    assert sysinfo.parse_meminfo("") is None
