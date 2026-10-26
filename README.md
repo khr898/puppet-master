@@ -50,10 +50,10 @@ Worker model: **Flint** `UD-IQ2_XXS` (a 40B-A2.5B mixture-of-experts model, 2-bi
 
 | Run | Read answers correct | Write checks pass | Claude tokens saved | Speed |
 |---|---|---|---|---|
-| `flint-iq2xxs-p6` | 90% (18/20) | 86% (6/7) | **74.1%** (reads 58.5%, writes 88.2%) | 26.5 tok/s |
-| `phase6-concrete` (re-run) | 85% (17/20) | 86% (6/7) | **74.2%** (reads 57.8%, writes 89.0%) | 26.4 tok/s |
+| Run 1 | 90% (18/20) | 86% (6/7) | **74.1%** (reads 58.5%, writes 88.2%) | 26.5 tok/s |
+| Run 2 (same setup) | 85% (17/20) | 86% (6/7) | **74.2%** (reads 57.8%, writes 89.0%) | 26.4 tok/s |
 
-Across both runs there were 0 errors, 0 unverifiable outputs and 0 reasoning tokens. The 5-point
+The raw results are in `evals/results/`. Across both runs there were 0 errors, 0 unverifiable outputs and 0 reasoning tokens. The 5-point
 difference between the runs is run-to-run noise on 20 questions, so read it as roughly 85-90%.
 Savings are **estimates** from character counts, not billed-token measurements, and they cover
 delegable work only; planning and review stay with Claude.
