@@ -30,7 +30,7 @@ None of these numbers come from an independent test of *this* job (citing exact 
 ## Decision
 
 1. **Default: Flint UD-IQ2_XXS.** It's the only "big-brain" model that fits, and its MoE speed suits a delegation tool.
-2. **Run a bake-off before the trial** (T13). Run Flint UD-IQ2_XXS against Gemma 4 12B at Q4 using the bridge's own `puppet-eval` task set, and keep whichever scores better on:
+2. **Run a bake-off before the trial**. Run Flint UD-IQ2_XXS against Gemma 4 12B at Q4 using the bridge's own `puppet-eval` task set, and keep whichever scores better on:
    - the verified-claim rate,
    - the write check-pass rate,
    - speed (tok/s),
@@ -43,11 +43,11 @@ None of these numbers come from an independent test of *this* job (citing exact 
 
 - **Reasoning tokens.** Flint emits `<think>` blocks, and its chat template has no `enable_thinking` switch. Thinking tokens share the 16K window and the `max_tokens` budget. The bridge handles this as follows (see SPEC → Reasoning control):
   - `--reasoning-budget 0` is the default.
-  - Checkpoint A verifies it empirically.
+  - The reasoning check below verifies it empirically.
   - If thinking can't be suppressed, a `reasoning_reserve` is taken out of the chunk budget.
 - **Sampling.** Recursive recommends `temperature 1.0, top_p 0.95, top_k 20` for general use. The bridge uses `temperature 0.2`, because quote extraction and mechanical edits need determinism. The bake-off checks that this doesn't hurt quality.
 - **Possible build branch.** Unsloth's Flint guide points at its `iq1-narrow` llama.cpp branch for its low-bit quants. If mainline llama.cpp can't load UD-IQ2_XXS, use that branch (see the setup doc).
-- **Checkpoint A reasoning check (2026-10-24, measured).** With `--reasoning-budget 0`, a `json_schema` request returned valid JSON in `content`, with 0 chars of `reasoning_content` and no `<think>` text (20 completion tokens). `/props` reported `n_ctx` 16384. The `json_schema` grammar and the reasoning setting work together, so the `reasoning_reserve` fallback isn't needed for now. Answer quality with thinking off is still unmeasured (the T13 bake-off covers it). Free memory read 9% (about 1.7GB) with Flint loaded, so the memory preflight will rightly refuse a second start under this load.
+- **Reasoning check (2026-10-24, measured).** With `--reasoning-budget 0`, a `json_schema` request returned valid JSON in `content`, with 0 chars of `reasoning_content` and no `<think>` text (20 completion tokens). `/props` reported `n_ctx` 16384. The `json_schema` grammar and the reasoning setting work together, so the `reasoning_reserve` fallback isn't needed for now. Answer quality with thinking off is still unmeasured (the bake-off covers it). Free memory read 9% (about 1.7GB) with Flint loaded, so the memory preflight will rightly refuse a second start under this load.
 - **Bake-off result (2026-10-25, measured, Flint UD-IQ2_XXS only).** `puppet-eval --label flint-iq2xxs` at `temperature 0.2`, `--reasoning-budget 0`, `ctx` 16384, saved in `evals/results/flint-iq2xxs.json`:
   - read: 80% answer-correct, 1.4 verified claims kept and 0.1 stripped per task, 0 unverifiable;
   - write: 100% check-pass;

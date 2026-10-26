@@ -1,6 +1,6 @@
 # Spec: Usage Saver — Flint delegation MCP bridge
 
-Status: **Approved 2026-10-24** · Intent: [../intent/usage-saver.md](../intent/usage-saver.md)
+Status: **Approved 2026-10-24**
 
 ## Assumptions
 
@@ -200,7 +200,6 @@ src/puppet_master/
   report.py        → 500-token cap, truncation
   log.py, stats.py → JSONL call log + summary CLI
 tests/             → unit tests (mocked LLM) + tests/live/ (marker: live)
-docs/intent/       → confirmed intent
 docs/spec/         → this spec + CLAUDE.md snippet
 puppet-master.toml         → per-project config (allow-list, budgets) — lives in target project
 .puppet-master/            → staging/ + log.jsonl (gitignored, in target project)
@@ -285,8 +284,8 @@ def verify_claim(claim: Claim, lines: list[str], window: int = 2) -> bool:
 
 ## Model choice and fine-tuning
 
-- **Model:** Flint UD-IQ2_XXS is the default, provisional until the T13 bake-off against Gemma 4 12B Q4. See [ADR 0001](../decisions/0001-local-model-choice.md).
-- **Fine-tuning:** not in v1. It's the last resort, with logged triggers to reopen it. See [ADR 0002](../decisions/0002-fine-tuning-last-resort.md).
+- **Model:** Flint UD-IQ2_XXS is the default, confirmed by the bake-off in the ADR. See [ADR 0001](../decisions/0001-local-model-choice.md).
+- **Fine-tuning:** not in v1; it is the last resort.
 
 ### Reasoning control
 
@@ -294,14 +293,14 @@ Flint is a reasoning model. Its chat template has no `enable_thinking` switch, a
 
 - **Default:** `server.toml` sets `reasoning_budget = 0`, which is passed as `--reasoning-budget 0`. The bridge also strips any `reasoning_content` or `<think>…</think>` from replies before parsing.
 - **Measured:** the bridge logs `reasoning_tokens` for every call, using `usage.completion_tokens_details.reasoning_tokens` when present, or an estimate from the stripped text.
-- **Fallback:** if Checkpoint A shows thinking can't be suppressed, or that suppressing it makes the answers worse, set `reasoning_budget = -1` (unlimited) plus `reasoning_reserve = 3000` in `puppet-master.toml`. The bridge subtracts the reserve from `chunk_tokens` and adds it to `max_tokens`.
-- **Grammar:** the JSON schema has to apply to the answer, not to the thinking. Checkpoint A verifies that `json_schema` and the reasoning setting work together.
+- **Fallback:** if the reasoning check shows thinking can't be suppressed, or that suppressing it makes the answers worse, set `reasoning_budget = -1` (unlimited) plus `reasoning_reserve = 3000` in `puppet-master.toml`. The bridge subtracts the reserve from `chunk_tokens` and adds it to `max_tokens`.
+- **Grammar:** the JSON schema has to apply to the answer, not to the thinking. The reasoning check verifies that `json_schema` and the reasoning setting work together.
 
 ### Sample capture (keeps fine-tuning possible)
 
 When `samples = true` (the default) in `puppet-master.toml`, every Flint call writes `{tool, system, user, raw_output, verdict}` to `.puppet-master/samples/YYYY-MM-DD.jsonl` in the target project. The `verdict` is one of `verified`, `stripped:N`, `check_failed`, `applied`, `rejected` or `unverifiable`.
 
-The samples stay local, `.puppet-master/` is gitignored, and the files are capped at 200MB in total (oldest deleted first). These samples are the only training data ADR 0002 would use.
+The samples stay local, `.puppet-master/` is gitignored, and the files are capped at 200MB in total (oldest deleted first). These samples would be the only training data if fine-tuning is ever tried.
 
 ## Open Questions
 

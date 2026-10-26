@@ -51,7 +51,7 @@ uvx --from huggingface_hub hf download unsloth/flint-GGUF flint-UD-IQ2_XXS.gguf 
 
 ## 3. Test-run the server once by hand
 
-This step is only a one-time test that the build and model work. After the bridge is built (T3b), you won't run this yourself: the bridge starts llama-server on demand with these same settings and stops it after 15 idle minutes to free memory.
+This step is only a one-time test that the build and model work. You won't run this yourself afterwards: the bridge starts llama-server on demand with these same settings and stops it after 15 idle minutes to free memory.
 
 Close heavy apps (browsers with many tabs, Docker) first.
 
@@ -135,7 +135,7 @@ EOF
 
 ## 6. Register with Claude Desktop
 
-Once the bridge is built (Checkpoint A in `tasks/todo.md`), add this to Claude Desktop's MCP config:
+Add this to Claude Desktop's MCP config:
 
 ```json
 "puppet-master": {

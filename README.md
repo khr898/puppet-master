@@ -17,7 +17,7 @@ a prompt:
 
 This is a research prototype, not a finished product. The measured results below come from one
 small machine, one default model and a 27-task benchmark of this repo. The design is in
-[docs/spec/SPEC.md](docs/spec/SPEC.md) and the decision records are in [docs/decisions](docs/decisions).
+[docs/spec/SPEC.md](docs/spec/SPEC.md) and the model-choice and BM25 decision records are in [docs/decisions](docs/decisions).
 
 > **Accuracy depends on the worker model.** Reading and writing accuracy rises with a better local
 > model: a larger model, a higher-fidelity quantization, or a reasoning model with thinking on.
