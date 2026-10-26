@@ -72,5 +72,5 @@ benchmarked yet.
 
 ## Test suite
 
-355 passed, 22 skipped (tests that need a free network port), about 89% line coverage; the guardrail
+362 passed, 22 skipped (tests that need a free network port), about 89% line coverage; the guardrail
 modules (read, write, check, report) are at 96% or higher. Ruff lint and format are clean.

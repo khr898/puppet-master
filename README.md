@@ -33,7 +33,7 @@ All figures come from the saved runs in [evals/results](evals/results) and from 
 
 | | |
 |---|---|
-| Tests | **355 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
+| Tests | **362 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
 | Skipped | Port-binding tests, which skip themselves inside a sandbox that forbids binding a port |
 | Line coverage | **89%** of 1,847 statements (`pytest --cov`) |
 | Lint | `ruff check` and `ruff format --check` clean |
@@ -266,7 +266,7 @@ only when applied, so rejected and failed delegations count against the worker. 
 
 ```bash
 uv sync
-uv run pytest -q                      # 355 tests; live tests are deselected
+uv run pytest -q                      # 362 tests; live tests are deselected
 uv run pytest -m live                 # needs a model server on :8000
 uv run ruff check . && uv run ruff format --check .
 ```
