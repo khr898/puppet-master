@@ -83,6 +83,8 @@ patches that pass. No larger or higher-precision model has been benchmarked yet.
 
 ## Installation
 
+An AI agent doing this setup should follow [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md).
+
 You need Python 3.11+ (developed and tested on macOS; Linux is untested), [`uv`](https://docs.astral.sh/uv/), `git`, and a model server
 (step 2).
 
@@ -126,9 +128,9 @@ a new Code-tab session:
 
 ### 4. Turn it on in a project
 
-1. Copy the `## Flint delegation` section of [CLAUDE.md](CLAUDE.md) (template:
-   [docs/spec/claude-md-snippet.md](docs/spec/claude-md-snippet.md)) into that project's `CLAUDE.md`.
-   It tells Claude what to delegate and what to keep.
+1. Copy the `## Flint delegation` section of
+   [docs/spec/claude-md-snippet.md](docs/spec/claude-md-snippet.md) into that project's `CLAUDE.md`
+   (or `AGENTS.md`). It tells the agent what to delegate and what to keep.
 2. Add a `puppet-master.toml` with the project's check commands. This repo's own file is an example:
 
    ```toml
@@ -280,3 +282,7 @@ In a sandbox that blocks uv's default cache, prefix each command with `UV_CACHE_
 - Not yet measured: models larger or less quantized than the default, and a multi-week trial of real
   usage against a Claude usage limit.
 - The checks run your project's own test and lint commands, so they are only as good as your tests.
+
+## License
+
+[MIT](LICENSE)

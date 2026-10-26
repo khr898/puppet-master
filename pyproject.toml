@@ -1,8 +1,10 @@
 [project]
 name = "puppet-master"
 version = "0.1.0"
-description = "MCP bridge that delegates bulk work to a local llama-server (Flint) with enforced guardrails"
+description = "MCP server that delegates bulk reads, writes and checks to a local or hosted worker model with enforced guardrails"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "khr898" }
 ]
