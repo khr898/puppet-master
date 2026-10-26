@@ -54,7 +54,7 @@ Ask the user which option they want. Option A is the default tested setup.
 
 ### A. Local llama.cpp, managed by Puppet Master (tested)
 
-Follow [docs/setup/flint-server.md](docs/setup/flint-server.md): build llama.cpp, download the model
+Follow [docs/setup.md](docs/setup.md) (the worked example and the optional managed-server section): build llama.cpp, download the model
 (about 12 GB; confirm disk space and get the user's OK before downloading), and write
 `~/.puppet-master/server.toml`. Puppet Master then starts and stops the server itself.
 

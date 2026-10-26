@@ -65,7 +65,7 @@ def _server_config() -> tuple[lifecycle.ServerConfig | None, dict | None]:
     except ValueError as e:
         return None, {"error": "bad_server_config", "detail": str(e)}
     if sc is None:
-        return None, {"error": "no_server_config", "hint": "see docs/setup/flint-server.md"}
+        return None, {"error": "no_server_config", "hint": "see docs/setup.md"}
     return sc, None
 
 

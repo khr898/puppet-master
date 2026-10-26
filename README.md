@@ -16,8 +16,8 @@ a prompt:
   only the blocks of a large file that match the question.
 
 This is a research prototype, not a finished product. The measured results below come from one
-small machine, one default model and a 27-task benchmark of this repo. The design is in
-[docs/spec/SPEC.md](docs/spec/SPEC.md) and the model-choice and BM25 decision records are in [docs/decisions](docs/decisions).
+small machine, one default model and a 27-task benchmark of this repo. Docs: [setup](docs/setup.md),
+[specs](docs/specs.md), [measured results](docs/results.md).
 
 > **Accuracy depends on the worker model.** Reading and writing accuracy rises with a better local
 > model: a larger model, a higher-fidelity quantization, or a reasoning model with thinking on.
@@ -101,7 +101,7 @@ uv sync
 Pick one. All of them speak the OpenAI-style `/v1/chat/completions` API.
 
 - **Local, managed by Puppet Master (llama.cpp):** follow
-  [docs/setup/flint-server.md](docs/setup/flint-server.md). Puppet Master then starts and stops
+  [docs/setup.md](docs/setup.md). Puppet Master then starts and stops
   `llama-server` on demand and frees the memory when idle.
 - **Local, you run the server:** Ollama, LM Studio, vLLM, mlx_lm or `llama-server` yourself.
 - **Hosted:** OpenRouter or any OpenAI-compatible API.
@@ -249,8 +249,8 @@ uv run puppet-savings --label my-model-savings     # runs the model: estimated C
 uv run puppet-savings --show flint-iq2xxs-savings   # print a saved run without running a model
 ```
 
-Results are saved to `evals/results/<label>.json`. Record the winner in
-[ADR 0001](docs/decisions/0001-local-model-choice.md).
+Results are saved to `evals/results/<label>.json`; compare them with the tables in
+[docs/results.md](docs/results.md).
 
 ## Reading the log
 

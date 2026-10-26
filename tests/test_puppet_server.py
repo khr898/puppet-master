@@ -58,7 +58,7 @@ async def test_flint_server_tool_is_registered_with_directive_description():
 async def test_flint_server_without_config_returns_no_server_config():
     out = await server.puppet_server("start")
     assert out["error"] == "no_server_config"
-    assert "flint-server.md" in out["hint"]
+    assert "docs/setup.md" in out["hint"]
 
 
 async def test_flint_server_with_invalid_config_returns_bad_server_config(env):
