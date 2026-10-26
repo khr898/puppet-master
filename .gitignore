@@ -1,11 +1,34 @@
-.venv/
-.uv-cache/
-.puppet-master/
+# Python
 __pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Tool caches and reports
+.uv-cache/
 .pytest_cache/
-.coverage
 .ruff_cache/
-.DS_Store
-.flint/
+.coverage
+.coverage.*
+htmlcov/
+
+# Puppet Master runtime data (call log, staged patches, samples)
+.puppet-master/
+# Written by tests that pass a relative project root
 relative/
+
+# Local agent and editor settings
 .claude/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.key
