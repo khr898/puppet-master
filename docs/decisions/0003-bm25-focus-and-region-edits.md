@@ -7,8 +7,8 @@
 
 Claude saves tokens only on the work it hands to Flint. Two kinds of work stayed with Claude:
 
-- **Finding code.** `flint_read` needed the right file up front, so Claude still had to grep and open files to find it. A glob over a package spilled into map-reduce over several chunks, and anything past 8 chunks was `over_budget`.
-- **Big files.** `flint_write` sent the whole file and had Flint write it all back. At about 35 tok/s, a 3k-token file takes about 90s, which is the timeout, and anything over 6k tokens was `over_budget`. Those are the edits where Claude spends the most, since it has to read the whole file.
+- **Finding code.** `puppet_read` needed the right file up front, so Claude still had to grep and open files to find it. A glob over a package spilled into map-reduce over several chunks, and anything past 8 chunks was `over_budget`.
+- **Big files.** `puppet_write` sent the whole file and had Flint write it all back. At about 35 tok/s, a 3k-token file takes about 90s, which is the timeout, and anything over 6k tokens was `over_budget`. Those are the edits where Claude spends the most, since it has to read the whole file.
 
 Prompt compression (LLMLingua) was ruled out first. It is lossy, which breaks exact-quote verification and patch review, and it can't touch the tokens Claude actually spends.
 
@@ -25,7 +25,7 @@ Both tools use the same math, in `retrieve.py`, with no model and no extra memor
 
 ## Results (2026-10-25, measured)
 
-`flint-savings --label focus-regions` against Flint UD-IQ2_XXS, saved in `evals/results/focus-regions.json`. The task set gained 10 `find-*` reads (the 10 existing questions, asked over `src/flint_bridge/*.py`, 31.8k tokens) and 2 writes on a 5.3k-token module.
+`puppet-savings --label focus-regions` against Flint UD-IQ2_XXS, saved in `evals/results/focus-regions.json`. The task set gained 10 `find-*` reads (the 10 existing questions, asked over `src/puppet_master/*.py`, 31.8k tokens) and 2 writes on a 5.3k-token module.
 
 | Group | Without Flint | With Flint | Saved | Quality |
 |---|---|---|---|---|

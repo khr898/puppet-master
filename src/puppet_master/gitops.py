@@ -6,13 +6,13 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from flint_bridge.check import run_check
-from flint_bridge.config import Config
+from puppet_master.check import run_check
+from puppet_master.config import Config
 
 # Dependency folders linked into the worktree instead of copied.
 LINKED = (".venv", "node_modules")
 # Never copied into the worktree: the bridge's own state (staged patches, logs, samples).
-NOT_COPIED = (*LINKED, ".flint")
+NOT_COPIED = (*LINKED, ".puppet-master")
 
 
 def toplevel(path: Path) -> Path | None:

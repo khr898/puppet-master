@@ -1,4 +1,4 @@
-from flint_bridge.retrieve import bm25, rank, split_blocks, terms, with_definitions
+from puppet_master.retrieve import bm25, rank, split_blocks, terms, with_definitions
 
 
 def test_terms_split_identifiers_and_drop_stopwords():

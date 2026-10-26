@@ -1,6 +1,6 @@
 import json
 
-from flint_bridge import attempts
+from puppet_master import attempts
 
 
 def test_unknown_task_does_not_give_up(tmp_path):
@@ -20,7 +20,7 @@ def test_tasks_are_counted_separately_and_persist_on_disk(tmp_path):
     attempts.record(tmp_path, "a", passed=False)
     attempts.record(tmp_path, "a", passed=False)
     attempts.record(tmp_path, "b", passed=False)
-    data = json.loads((tmp_path / ".flint" / "attempts.json").read_text())
+    data = json.loads((tmp_path / ".puppet-master" / "attempts.json").read_text())
     assert data == {"a": {"failed": 2}, "b": {"failed": 1}}
     assert attempts.give_up(tmp_path, "a") and not attempts.give_up(tmp_path, "b")
 
@@ -34,8 +34,8 @@ def test_reset_forgets_the_task(tmp_path):
 
 
 def test_a_corrupt_file_is_treated_as_empty(tmp_path):
-    (tmp_path / ".flint").mkdir()
-    (tmp_path / ".flint" / "attempts.json").write_text("{not json")
+    (tmp_path / ".puppet-master").mkdir()
+    (tmp_path / ".puppet-master" / "attempts.json").write_text("{not json")
     assert attempts.give_up(tmp_path, "a") is False
     attempts.record(tmp_path, "a", passed=False)
     assert attempts.give_up(tmp_path, "a") is False

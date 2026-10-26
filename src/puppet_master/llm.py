@@ -1,11 +1,12 @@
+import os
 import re
 import time
 from dataclasses import dataclass, field
 
 import httpx
 
-from flint_bridge.config import Config
-from flint_bridge.report import est_tokens
+from puppet_master.config import Config
+from puppet_master.report import est_tokens
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
@@ -29,6 +30,13 @@ def _strip_think(content: str) -> tuple[str, str]:
     return _THINK.sub("", content).strip(), removed
 
 
+def _client(cfg: Config, timeout: float) -> httpx.AsyncClient:
+    """An HTTP client; PUPPET_API_KEY (env only, never a file) is sent as a Bearer token."""
+    key = os.environ.get("PUPPET_API_KEY")
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    return httpx.AsyncClient(timeout=timeout, headers=headers)
+
+
 async def complete(
     cfg: Config, system: str, user: str, *, max_tokens: int, schema: dict | None = None
 ) -> Completion:
@@ -42,7 +50,7 @@ async def complete(
     if schema is not None:
         payload["response_format"] = {"type": "json_schema", "json_schema": {"schema": schema}}
     try:
-        async with httpx.AsyncClient(timeout=cfg.timeout_s) as client:
+        async with _client(cfg, cfg.timeout_s) as client:
             resp = await client.post(f"{cfg.base_url}/v1/chat/completions", json=payload)
             resp.raise_for_status()
         body = resp.json()
@@ -74,7 +82,7 @@ async def health(cfg: Config) -> dict:
     answers; a 503 from /health means llama-server is still loading, so that stays down.
     """
     try:
-        async with httpx.AsyncClient(timeout=min(cfg.timeout_s, 5)) as client:
+        async with _client(cfg, min(cfg.timeout_s, 5)) as client:
             start = time.perf_counter()
             resp = await client.get(f"{cfg.base_url}/health")
             if resp.status_code == 404:

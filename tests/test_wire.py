@@ -1,11 +1,11 @@
 import json
 
-from flint_bridge import server
-from flint_bridge.report import factor_base
+from puppet_master import server
+from puppet_master.report import factor_base
 
 
 async def test_tools_send_one_compact_json_text_block(tmp_path):
-    out = await server.mcp.call_tool("flint_check", {"cmd": "test", "root": "relative/dir"})
+    out = await server.mcp.call_tool("puppet_check", {"cmd": "test", "root": "relative/dir"})
     blocks = out[0] if isinstance(out, tuple) else out
     assert len(blocks) == 1
     text = blocks[0].text

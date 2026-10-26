@@ -1,17 +1,17 @@
 from collections.abc import Awaitable, Callable
 
-from flint_bridge.budget import fits
-from flint_bridge.config import Config
-from flint_bridge.llm import complete
-from flint_bridge.read import Usage
-from flint_bridge.report import est_tokens
+from puppet_master.budget import fits
+from puppet_master.config import Config
+from puppet_master.llm import complete
+from puppet_master.read import Usage
+from puppet_master.report import est_tokens
 
 ASK_MAX_TOKENS = 450  # a draft longer than this would be cut by the 500-token report cap
 
 SYSTEM_ASK = "Write the requested draft. Be concise."
 
 
-async def flint_ask_impl(
+async def puppet_ask_impl(
     cfg: Config,
     prompt: str,
     context: str = "",

@@ -11,10 +11,10 @@ import httpx
 import pytest
 import respx
 
-from flint_bridge import eval as flint_eval
-from flint_bridge import lifecycle, server
-from flint_bridge.config import Config
-from flint_bridge.read import Usage
+from puppet_master import eval as flint_eval
+from puppet_master import lifecycle, server
+from puppet_master.config import Config
+from puppet_master.read import Usage
 
 ROOT = Path(__file__).parent.parent
 EVALS = ROOT / "evals"

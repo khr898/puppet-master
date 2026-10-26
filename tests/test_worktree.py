@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge import gitops, server
-from flint_bridge.config import Config
-from flint_bridge.gitops import baseline_worktree, run_git, stage_and_check
+from puppet_master import gitops, server
+from puppet_master.config import Config
+from puppet_master.gitops import baseline_worktree, run_git, stage_and_check
 
 PYTEST = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
 CFG = replace(Config(), check_commands={"test": PYTEST})
@@ -36,7 +36,7 @@ def repo(tmp_path) -> Path:
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     git(root, "config", "user.email", "t@example.com")
     git(root, "config", "user.name", "t")
-    (root / ".gitignore").write_text(".venv/\n.flint/\n__pycache__/\n")
+    (root / ".gitignore").write_text(".venv/\n.puppet-master/\n__pycache__/\n")
     (root / "app.py").write_text(ADD)
     (root / "test_app.py").write_text(
         "from app import add\n\n\ndef test_add():\n    assert add(1, 2) == 3\n"
@@ -135,11 +135,11 @@ def test_worktree_is_removed_when_the_check_raises(repo, monkeypatch):
 
 def allow_test_check(repo: Path) -> None:
     argv = ", ".join(f'"{a}"' for a in PYTEST)
-    (repo / "flint.toml").write_text(f"[check.commands]\ntest = [{argv}]\n")
+    (repo / "puppet-master.toml").write_text(f"[check.commands]\ntest = [{argv}]\n")
 
 
 def stage(repo: Path, patch_id: str, patch: str) -> None:
-    d = repo / ".flint" / "staging"
+    d = repo / ".puppet-master" / "staging"
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{patch_id}.patch").write_text(patch)
 
@@ -154,8 +154,8 @@ async def test_flint_check_with_patch_id_runs_against_the_staged_patch(repo):
     stage(repo, "bbb222", stage_and_check(CFG, repo, {repo / "app.py": good_src}, "test")["patch"])
     before = status(repo)
 
-    failing = await server.flint_check("test", str(repo), "aaa111")
-    passing = await server.flint_check("test", str(repo), "bbb222")
+    failing = await server.puppet_check("test", str(repo), "aaa111")
+    passing = await server.puppet_check("test", str(repo), "bbb222")
 
     assert failing["passed"] is False and failing["failures"]
     assert passing["passed"] is True
@@ -165,7 +165,8 @@ async def test_flint_check_with_patch_id_runs_against_the_staged_patch(repo):
 
 async def test_flint_check_with_bad_patch_ids(repo):
     allow_test_check(repo)
-    assert (await server.flint_check("test", str(repo), "dead99"))["error"] == "unknown_patch"
-    assert (await server.flint_check("test", str(repo), "../../etc"))["error"] == "invalid_patch_id"
+    assert (await server.puppet_check("test", str(repo), "dead99"))["error"] == "unknown_patch"
+    bad = await server.puppet_check("test", str(repo), "../../etc")
+    assert bad["error"] == "invalid_patch_id"
     stage(repo, "ccc333", "this is not a patch\n")
-    assert (await server.flint_check("test", str(repo), "ccc333"))["error"] == "does_not_apply"
+    assert (await server.puppet_check("test", str(repo), "ccc333"))["error"] == "does_not_apply"

@@ -5,15 +5,15 @@ import re
 import secrets
 from pathlib import Path
 
-from flint_bridge.check import run_check
-from flint_bridge.config import Config
-from flint_bridge.gitops import GitError, baseline_worktree, run_git
+from puppet_master.check import run_check
+from puppet_master.config import Config
+from puppet_master.gitops import GitError, baseline_worktree, run_git
 
 _ID = re.compile(r"^[0-9a-f]{1,32}$")
 
 
 def staging_dir(root: Path) -> Path:
-    return root / ".flint" / "staging"
+    return root / ".puppet-master" / "staging"
 
 
 def patch_file(root: Path, patch_id: str) -> Path:
@@ -69,8 +69,8 @@ def save_meta(root: Path, patch_id: str, meta: dict) -> None:
 
 
 def _key() -> bytes:
-    """Per-machine signing key in ~/.flint, outside every project the bridge works on."""
-    path = Path.home() / ".flint" / "meta.key"
+    """Per-machine signing key in ~/.puppet-master, outside every project the bridge works on."""
+    path = Path.home() / ".puppet-master" / "meta.key"
     try:
         return path.read_bytes()
     except OSError:

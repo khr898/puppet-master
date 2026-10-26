@@ -34,9 +34,9 @@ The question was whether to fine-tune Flint, or a model like it, into a speciali
 
 Reopen this decision only if **all** of these are true after the one-week trial and steps 1–4:
 
-- The accept rate is below **70%** within 2 attempts, or more than **25%** of claims are stripped per `flint_read`.
+- The accept rate is below **70%** within 2 attempts, or more than **25%** of claims are stripped per `puppet_read`.
 - The failures cluster in a learnable pattern (for example, the same kind of wrong edit). Random misses don't count.
-- `.flint/samples/` has at least **~500 labeled samples** (accepted vs rejected/stripped).
+- `.puppet-master/samples/` has at least **~500 labeled samples** (accepted vs rejected/stripped).
 
 ## If reopened, the preferred order
 

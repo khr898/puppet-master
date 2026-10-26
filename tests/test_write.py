@@ -9,14 +9,14 @@ import httpx
 import pytest
 import respx
 
-from flint_bridge import server
-from flint_bridge.config import Config, load_config
-from flint_bridge.gitops import run_git
-from flint_bridge.write import (
+from puppet_master import server
+from puppet_master.config import Config, load_config
+from puppet_master.gitops import run_git
+from puppet_master.write import (
     SYSTEM_WRITE,
     Region,
-    flint_write_impl,
     pick_regions,
+    puppet_write_impl,
     splice,
     task_key,
     write_schema,
@@ -43,7 +43,7 @@ def status(root: Path) -> str:
 
 
 def staged(root: Path) -> list[Path]:
-    d = root / ".flint" / "staging"
+    d = root / ".puppet-master" / "staging"
     return sorted(d.glob("*")) if d.exists() else []
 
 
@@ -60,13 +60,13 @@ async def test_valid_edit_is_staged_with_a_hashed_patch_and_the_tree_is_untouche
     route = respx.post(URL).mock(return_value=llm_reply(edit(app, ADD_AND_SUB, "added sub")))
     before = status(git_repo)
 
-    out = await flint_write_impl(load_config(git_repo), "add a sub function", [str(app)], "")
+    out = await puppet_write_impl(load_config(git_repo), "add a sub function", [str(app)], "")
 
     assert out["check"] == {"passed": True, "failures": []}
     assert out["notes"] == "added sub"
     assert "app.py" in out["diffstat"]
     patch = Path(out["patch_path"])
-    assert patch == git_repo.resolve() / ".flint" / "staging" / f"{out['patch_id']}.patch"
+    assert patch == git_repo.resolve() / ".puppet-master" / "staging" / f"{out['patch_id']}.patch"
     assert "+def sub(a, b):" in patch.read_text()
     meta = json.loads(patch.with_suffix(".json").read_text())
     assert meta["sha256"] == hashlib.sha256(patch.read_bytes()).hexdigest()
@@ -83,7 +83,7 @@ async def test_valid_edit_is_staged_with_a_hashed_patch_and_the_tree_is_untouche
 async def test_prompt_puts_files_first_and_the_task_last(git_repo):
     app, new = git_repo / "app.py", git_repo / "extra.py"
     route = respx.post(URL).mock(return_value=llm_reply(edit(app, ADD_AND_SUB)))
-    await flint_write_impl(load_config(git_repo), "do it", [str(new), str(app)], "keep style")
+    await puppet_write_impl(load_config(git_repo), "do it", [str(new), str(app)], "keep style")
     body = json.loads(route.calls[0].request.content)
     msg = body["messages"][1]["content"]
     assert body["messages"][0]["content"] == SYSTEM_WRITE
@@ -99,11 +99,11 @@ async def test_prompt_puts_files_first_and_the_task_last(git_repo):
 async def test_a_breaking_edit_is_staged_but_reports_the_failed_check(git_repo):
     app = git_repo / "app.py"
     respx.post(URL).mock(return_value=llm_reply(edit(app, "def add(a, b):\n    return a - b\n")))
-    out = await flint_write_impl(load_config(git_repo), "break it", [str(app)], "")
+    out = await puppet_write_impl(load_config(git_repo), "break it", [str(app)], "")
     assert out["check"]["passed"] is False
     assert any("test_add" in f for f in out["check"]["failures"])
     assert len(staged(git_repo)) == 2
-    assert json.loads((git_repo / ".flint" / "attempts.json").read_text()) == {
+    assert json.loads((git_repo / ".puppet-master" / "attempts.json").read_text()) == {
         task_key("break it"): {"failed": 1}
     }
 
@@ -119,10 +119,10 @@ async def test_a_path_outside_files_is_rejected_and_nothing_is_staged(git_repo):
         "notes": "",
     }
     respx.post(URL).mock(return_value=llm_reply(reply))
-    out = await flint_write_impl(load_config(git_repo), "t", [str(app)], "")
+    out = await puppet_write_impl(load_config(git_repo), "t", [str(app)], "")
     assert out["error"] == "unexpected_path"
     assert staged(git_repo) == []
-    assert not (git_repo / ".flint" / "attempts.json").exists()
+    assert not (git_repo / ".puppet-master" / "attempts.json").exists()
 
 
 @respx.mock
@@ -130,11 +130,11 @@ async def test_oversized_file_and_too_many_files_are_over_budget_without_a_call(
     route = respx.post(URL).mock(return_value=llm_reply(edit(git_repo / "app.py", "x")))
     big = git_repo / "big.py"
     big.write_text("x = 1\n" * 5000)  # 30 KB
-    out = await flint_write_impl(load_config(git_repo), "t", [str(big)], "")
+    out = await puppet_write_impl(load_config(git_repo), "t", [str(big)], "")
     assert out["error"] == "over_budget"
     assert "one task per file" in out["hint"]
     four = [str(git_repo / f"f{i}.py") for i in range(4)]
-    assert (await flint_write_impl(load_config(git_repo), "t", four, ""))["error"] == "over_budget"
+    assert (await puppet_write_impl(load_config(git_repo), "t", four, ""))["error"] == "over_budget"
     assert route.call_count == 0
 
 
@@ -146,7 +146,7 @@ async def test_total_size_across_files_is_budgeted_too(git_repo):
         p = git_repo / f"m{i}.py"
         p.write_text("y = 1\n" * 1500)  # 9 KB ≈ 2.2k tokens each: 6.7k together
         paths.append(str(p))
-    out = await flint_write_impl(load_config(git_repo), "t", paths, "")
+    out = await puppet_write_impl(load_config(git_repo), "t", paths, "")
     assert out["error"] == "over_budget"
     assert route.call_count == 0
 
@@ -155,7 +155,7 @@ async def test_total_size_across_files_is_budgeted_too(git_repo):
 async def test_a_new_file_path_produces_a_patch_that_creates_it(git_repo):
     new = git_repo / "pkg" / "util.py"
     respx.post(URL).mock(return_value=llm_reply(edit(new, "VALUE = 3\n")))
-    out = await flint_write_impl(load_config(git_repo), "make util", [str(new)], "")
+    out = await puppet_write_impl(load_config(git_repo), "make util", [str(new)], "")
     patch = Path(out["patch_path"]).read_text()
     assert "new file mode" in patch and "+VALUE = 3" in patch
     assert not new.exists()
@@ -165,7 +165,7 @@ async def test_a_new_file_path_produces_a_patch_that_creates_it(git_repo):
 @respx.mock
 async def test_invalid_json_twice_is_unverifiable_and_stages_nothing(git_repo):
     route = respx.post(URL).mock(return_value=llm_reply("not json"))
-    out = await flint_write_impl(load_config(git_repo), "t", [str(git_repo / "app.py")], "")
+    out = await puppet_write_impl(load_config(git_repo), "t", [str(git_repo / "app.py")], "")
     assert out == {"error": "unverifiable_output"}
     assert route.call_count == 2
     assert staged(git_repo) == []
@@ -175,22 +175,23 @@ async def test_invalid_json_twice_is_unverifiable_and_stages_nothing(git_repo):
 async def test_identical_content_is_no_changes(git_repo):
     app = git_repo / "app.py"
     respx.post(URL).mock(return_value=llm_reply(edit(app, app.read_text())))
-    out = await flint_write_impl(load_config(git_repo), "t", [str(app)], "")
+    out = await puppet_write_impl(load_config(git_repo), "t", [str(app)], "")
     assert out == {"error": "no_changes"}
     assert staged(git_repo) == []
 
 
 async def test_files_must_be_absolute_and_inside_one_repo(git_repo, tmp_path):
     cfg = load_config(git_repo)
-    assert (await flint_write_impl(cfg, "t", ["app.py"], ""))["error"] == "relative_path"
-    assert (await flint_write_impl(cfg, "t", [], ""))["error"] == "no_files"
+    assert (await puppet_write_impl(cfg, "t", ["app.py"], ""))["error"] == "relative_path"
+    assert (await puppet_write_impl(cfg, "t", [], ""))["error"] == "no_files"
     outside = tmp_path / "loose"
     outside.mkdir()
-    assert (await flint_write_impl(cfg, "t", [str(outside / "a.py")], ""))["error"] == "not_in_repo"
+    res = await puppet_write_impl(cfg, "t", [str(outside / "a.py")], "")
+    assert res["error"] == "not_in_repo"
     other = tmp_path / "other"
     other.mkdir()
     subprocess.run(["git", "init", "-q", str(other)], check=True)
-    out = await flint_write_impl(cfg, "t", [str(git_repo / "app.py"), str(other / "b.py")], "")
+    out = await puppet_write_impl(cfg, "t", [str(git_repo / "app.py"), str(other / "b.py")], "")
     assert out["error"] == "multiple_repos"
 
 
@@ -215,7 +216,7 @@ def tool_env(tmp_path, monkeypatch):
 
 
 def log_rows(root: Path) -> list[dict]:
-    return [json.loads(x) for x in (root / ".flint" / "log.jsonl").read_text().splitlines()]
+    return [json.loads(x) for x in (root / ".puppet-master" / "log.jsonl").read_text().splitlines()]
 
 
 @respx.mock
@@ -227,22 +228,22 @@ async def test_tool_logs_staged_and_check_failed_with_the_task_key(tool_env, git
             llm_reply(edit(app, "def add(a, b):\n    return 0\n")),
         ]
     )
-    good = await server.flint_write("grow app", [str(app)])
-    bad = await server.flint_write("shrink app", [str(app)])
+    good = await server.puppet_write("grow app", [str(app)])
+    bad = await server.puppet_write("shrink app", [str(app)])
     assert good["check"]["passed"] and not bad["check"]["passed"]
     rows = log_rows(git_repo)
     assert [r["outcome"] for r in rows] == ["staged", "check_failed"]
     assert rows[0]["task_key"] == task_key("grow app")
-    assert rows[0]["flint_tokens_in"] == 800 and rows[0]["tool"] == "flint_write"
+    assert rows[0]["flint_tokens_in"] == 800 and rows[0]["tool"] == "puppet_write"
 
 
 @respx.mock
 async def test_tool_report_stays_within_500_tokens(tool_env, git_repo):
-    from flint_bridge.report import est_tokens
+    from puppet_master.report import est_tokens
 
     app = git_repo / "app.py"
     respx.post(URL).mock(return_value=llm_reply(edit(app, ADD_AND_SUB, "note " * 1000)))
-    out = await server.flint_write("grow app", [str(app)])
+    out = await server.puppet_write("grow app", [str(app)])
     assert est_tokens(json.dumps(out)) <= 500
     assert out["patch_id"] and out["patch_path"]
     assert len(out["notes"]) <= 300
@@ -251,14 +252,14 @@ async def test_tool_report_stays_within_500_tokens(tool_env, git_repo):
 @respx.mock
 async def test_tool_returns_flint_offline(tool_env, git_repo):
     respx.post(URL).mock(side_effect=httpx.ConnectError("refused"))
-    out = await server.flint_write("t", [str(git_repo / "app.py")])
+    out = await server.puppet_write("t", [str(git_repo / "app.py")])
     assert out == {"error": "flint_offline"}
     assert log_rows(git_repo)[0]["outcome"] == "offline"
 
 
 async def test_tool_description_states_the_contract():
     tools = {t.name: t for t in await server.mcp.list_tools()}
-    desc = tools["flint_write"].description
+    desc = tools["puppet_write"].description
     assert "STAGED patch" in desc and "MUST read the patch" in desc and "≤3 files" in desc
 
 
@@ -266,8 +267,8 @@ async def test_tool_description_states_the_contract():
 async def test_tool_report_with_many_long_failures_stays_within_500_tokens(
     tool_env, git_repo, monkeypatch
 ):
-    from flint_bridge import write
-    from flint_bridge.report import est_tokens
+    from puppet_master import write
+    from puppet_master.report import est_tokens
 
     check = {"passed": False, "exit_code": 1, "failures": ["FAILED t " + "x" * 190] * 20}
     fake = {
@@ -279,7 +280,7 @@ async def test_tool_report_with_many_long_failures_stays_within_500_tokens(
     monkeypatch.setattr(write, "stage_and_check", lambda *_a, **_k: fake)
     app = git_repo / "app.py"
     respx.post(URL).mock(return_value=llm_reply(edit(app, ADD_AND_SUB, "n" * 400)))
-    out = await server.flint_write("grow app", [str(app)])
+    out = await server.puppet_write("grow app", [str(app)])
     assert est_tokens(json.dumps(out)) <= 500
     assert out["check"]["passed"] is False and out["check"]["failures"]
     assert out["patch_id"] and out["patch_path"]
@@ -287,15 +288,15 @@ async def test_tool_report_with_many_long_failures_stays_within_500_tokens(
 
 @respx.mock
 async def test_project_without_a_configured_check_never_calls_flint(git_repo):
-    (git_repo / "flint.toml").unlink()
+    (git_repo / "puppet-master.toml").unlink()
     route = respx.post(URL).mock(return_value=llm_reply(edit(git_repo / "app.py", "x")))
-    out = await flint_write_impl(load_config(git_repo), "t", [str(git_repo / "app.py")], "")
+    out = await puppet_write_impl(load_config(git_repo), "t", [str(git_repo / "app.py")], "")
     assert out["error"] == "no_check_configured"
     assert route.call_count == 0
 
 
 def test_stage_and_check_lists_only_files_that_changed(git_repo):
-    from flint_bridge.gitops import stage_and_check
+    from puppet_master.gitops import stage_and_check
 
     cfg = load_config(git_repo)
     new = {
@@ -307,13 +308,13 @@ def test_stage_and_check_lists_only_files_that_changed(git_repo):
 
 
 def test_flint_state_is_not_copied_into_the_worktree(git_repo):
-    from flint_bridge.gitops import baseline_worktree
+    from puppet_master.gitops import baseline_worktree
 
-    (git_repo / ".gitignore").write_text("")  # .flint is untracked, not ignored
-    (git_repo / ".flint" / "staging").mkdir(parents=True)
-    (git_repo / ".flint" / "staging" / "abc.patch").write_text("x")
+    (git_repo / ".gitignore").write_text("")  # .puppet-master is untracked, not ignored
+    (git_repo / ".puppet-master" / "staging").mkdir(parents=True)
+    (git_repo / ".puppet-master" / "staging" / "abc.patch").write_text("x")
     with baseline_worktree(git_repo) as tmp:
-        assert not (tmp / ".flint").exists()
+        assert not (tmp / ".puppet-master").exists()
 
 
 def _big_module(path: Path, n: int = 80) -> str:
@@ -351,7 +352,7 @@ async def test_a_big_file_is_edited_by_region_and_spliced_back(git_repo):
         return llm_reply({"regions": [{"id": rid, "content": body}], "notes": ""})
 
     route = respx.post(URL).mock(side_effect=reply)
-    out = await flint_write_impl(cfg, task, [str(mod)], "")
+    out = await puppet_write_impl(cfg, task, [str(mod)], "")
 
     msg = user_message(route)
     assert "OUTLINE" in msg and "def scale_70(x):" in msg  # outline line
@@ -371,10 +372,10 @@ async def test_an_unknown_region_or_a_whole_file_reply_for_it_is_rejected(git_re
     cfg = replace(load_config(git_repo), region_tokens=200)
     bad = {"files": [], "regions": [{"id": "r99", "content": "x"}], "notes": ""}
     respx.post(URL).mock(return_value=llm_reply(bad))
-    out = await flint_write_impl(cfg, "change scale_3", [str(mod)], "")
+    out = await puppet_write_impl(cfg, "change scale_3", [str(mod)], "")
     assert out["error"] == "unexpected_region"
     respx.post(URL).mock(return_value=llm_reply(edit(mod, "x = 1\n")))
-    out = await flint_write_impl(cfg, "change scale_3", [str(mod)], "")
+    out = await puppet_write_impl(cfg, "change scale_3", [str(mod)], "")
     assert out["error"] == "unexpected_path"
     assert staged(git_repo) == []
 
@@ -385,7 +386,7 @@ async def test_a_big_file_with_nothing_matching_the_task_is_over_budget(git_repo
     _big_module(mod)
     route = respx.post(URL).mock(return_value=llm_reply(edit(mod, "x")))
     cfg = replace(load_config(git_repo), region_tokens=200)
-    out = await flint_write_impl(cfg, "zzz qqq", [str(mod)], "")
+    out = await puppet_write_impl(cfg, "zzz qqq", [str(mod)], "")
     assert out["error"] == "over_budget" and "name the function" in out["hint"]
     assert route.call_count == 0
 

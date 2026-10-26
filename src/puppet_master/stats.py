@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from flint_bridge.savings import OUT_WEIGHT
+from puppet_master.savings import OUT_WEIGHT
 
 DECIDED = ("applied", "rejected", "miss", "check_failed")
 _SINCE = re.compile(r"^(\d+)([dh])$")
@@ -72,7 +72,7 @@ def savings(rows: list[dict]) -> dict:
 
 
 def accuracy(rows: list[dict]) -> dict:
-    reads = [r for r in rows if r["tool"] == "flint_read" and r.get("claims") is not None]
+    reads = [r for r in rows if r["tool"] == "puppet_read" and r.get("claims") is not None]
     kept, stripped = _sum(reads, "claims"), _sum(reads, "stripped")
     return {
         "claims_kept": kept,
@@ -157,9 +157,9 @@ def _render_accuracy(summary: dict) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="flint-stats", description="Summarize the Flint call log."
+        prog="puppet-stats", description="Summarize the Flint call log."
     )
-    parser.add_argument("--log", type=Path, default=Path(".flint/log.jsonl"))
+    parser.add_argument("--log", type=Path, default=Path(".puppet-master/log.jsonl"))
     parser.add_argument("--since", help="only calls newer than this, e.g. 7d or 24h")
     args = parser.parse_args(argv)
     if not args.log.exists():

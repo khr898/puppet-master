@@ -1,4 +1,4 @@
-from flint_bridge import lifecycle, sysinfo
+from puppet_master import lifecycle, sysinfo
 
 VM_STAT = """Mach Virtual Memory Statistics: (page size of 16384 bytes)
 Pages free:                                     6565.

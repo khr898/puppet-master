@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def _path(root: Path) -> Path:
-    return root / ".flint" / "attempts.json"
+    return root / ".puppet-master" / "attempts.json"
 
 
 def _load(root: Path) -> dict:

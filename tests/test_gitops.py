@@ -1,6 +1,6 @@
 import subprocess
 
-from flint_bridge.gitops import toplevel
+from puppet_master.gitops import toplevel
 
 
 def test_toplevel_of_a_subfolder_is_the_repo_root(tmp_path):

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge.budget import PathError, expand, fits, parse_path
-from flint_bridge.config import Config
+from puppet_master.budget import PathError, expand, fits, parse_path
+from puppet_master.config import Config
 
 
 def test_parse_path_plain():

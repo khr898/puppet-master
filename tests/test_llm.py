@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-from flint_bridge.config import Config
-from flint_bridge.llm import Completion, FlintOffline, complete, health
+from puppet_master.config import Config
+from puppet_master.llm import Completion, FlintOffline, complete, health
 
 CFG = Config()
 URL = f"{CFG.base_url}/v1/chat/completions"
@@ -182,3 +182,19 @@ async def test_health_is_down_when_neither_endpoint_answers():
     respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(404))
     respx.get(f"{CFG.base_url}/v1/models").mock(return_value=httpx.Response(404))
     assert (await health(CFG))["up"] is False
+
+
+@respx.mock
+async def test_api_key_env_is_sent_as_a_bearer_token(monkeypatch):
+    monkeypatch.setenv("PUPPET_API_KEY", "test-key")
+    route = respx.post(URL).mock(return_value=reply("x"))
+    await complete(CFG, "s", "u", max_tokens=10)
+    assert route.calls.last.request.headers["authorization"] == "Bearer test-key"
+
+
+@respx.mock
+async def test_no_authorization_header_without_an_api_key(monkeypatch):
+    monkeypatch.delenv("PUPPET_API_KEY", raising=False)
+    route = respx.post(URL).mock(return_value=reply("x"))
+    await complete(CFG, "s", "u", max_tokens=10)
+    assert "authorization" not in route.calls.last.request.headers

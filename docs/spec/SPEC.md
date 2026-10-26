@@ -39,14 +39,14 @@ Every tool returns a JSON report capped at **500 tokens**. A report that would g
 
 | Tool | Input | Returns |
 |---|---|---|
-| `flint_status()` | — | `{up, model, ctx, latency_ms, mem_pressure}` (memory pressure comes from `memory_pressure -Q` / `vm_stat`) |
-| `flint_read(paths, question)` | file/glob paths, a question | `{answer, claims[], stripped, chunks}` (see Read verification) |
-| `flint_write(task, files, constraints)` | a task, target files, constraints | `{patch_id, patch_path, diffstat, notes, check}` (see Write pipeline) |
-| `flint_check(cmd, root, patch_id?)` | an allow-listed command name, the repo root, plus an optional staged patch | `{passed, failures[] (≤20), exit_code}` |
-| `flint_apply(root, patch_id)` | repo root, patch id | `{applied, files}`. **Refuses** unless the patch's check passed and its hash hasn't changed. |
-| `flint_reject(root, patch_id, reason)` | repo root, patch id, reason | Deletes the staged patch and counts it as a failed attempt |
-| `flint_ask(prompt, context)` | prompt, plus optional text context | `{draft, verified: false}`. Always marked unverified. |
-| `flint_server(action)` | `start` \| `stop` \| `restart` | `{up, managed, pid, rss_gb, mem_free_pct}` (see Server lifecycle) |
+| `puppet_status()` | — | `{up, model, ctx, latency_ms, mem_pressure}` (memory pressure comes from `memory_pressure -Q` / `vm_stat`) |
+| `puppet_read(paths, question)` | file/glob paths, a question | `{answer, claims[], stripped, chunks}` (see Read verification) |
+| `puppet_write(task, files, constraints)` | a task, target files, constraints | `{patch_id, patch_path, diffstat, notes, check}` (see Write pipeline) |
+| `puppet_check(cmd, root, patch_id?)` | an allow-listed command name, the repo root, plus an optional staged patch | `{passed, failures[] (≤20), exit_code}` |
+| `puppet_apply(root, patch_id)` | repo root, patch id | `{applied, files}`. **Refuses** unless the patch's check passed and its hash hasn't changed. |
+| `puppet_reject(root, patch_id, reason)` | repo root, patch id, reason | Deletes the staged patch and counts it as a failed attempt |
+| `puppet_ask(prompt, context)` | prompt, plus optional text context | `{draft, verified: false}`. Always marked unverified. |
+| `puppet_server(action)` | `start` \| `stop` \| `restart` | `{up, managed, pid, rss_gb, mem_free_pct}` (see Server lifecycle) |
 
 All paths are absolute. The project root is the git toplevel of the paths given.
 
@@ -71,11 +71,11 @@ All paths are absolute. The project root is the git toplevel of the paths given.
    - It writes Flint's files.
    - It takes `git diff --binary` as the patch.
 
-   The patch is saved as `.flint/staging/<patch_id>.patch` along with its sha256. The real working tree is **not** touched.
-3. In the same worktree, the bridge runs the default allow-listed check (`[check].default` in `flint.toml`) and records whether it passed or failed against the `patch_id`.
-4. The report gives the diffstat, the check result, and `patch_path`. The description tells Claude: *read the patch at `patch_path` before calling `flint_apply`.*
-5. `flint_apply` runs `git apply --check` and then `git apply` in the real working tree, but only if the check passed and the hash still matches.
-6. A retry is `flint_write` called again with `constraints` that include Claude's feedback. After 2 failed attempts on the same task (the bridge tracks a `task_key`), the tool returns `{"give_up": true}` and logs a **miss**.
+   The patch is saved as `.puppet-master/staging/<patch_id>.patch` along with its sha256. The real working tree is **not** touched.
+3. In the same worktree, the bridge runs the default allow-listed check (`[check].default` in `puppet-master.toml`) and records whether it passed or failed against the `patch_id`.
+4. The report gives the diffstat, the check result, and `patch_path`. The description tells Claude: *read the patch at `patch_path` before calling `puppet_apply`.*
+5. `puppet_apply` runs `git apply --check` and then `git apply` in the real working tree, but only if the check passed and the hash still matches.
+6. A retry is `puppet_write` called again with `constraints` that include Claude's feedback. After 2 failed attempts on the same task (the bridge tracks a `task_key`), the tool returns `{"give_up": true}` and logs a **miss**.
 
 ### Fallbacks
 
@@ -84,7 +84,7 @@ All paths are absolute. The project root is the git toplevel of the paths given.
 
 ### Server lifecycle (the bridge runs Flint)
 
-The settings live in `~/.flint/server.toml`, a machine-wide file that the user writes once. Claude can never pass flags to llama-server. It can only call `start`, `stop` or `restart`, and the bridge builds the command line from this file:
+The settings live in `~/.puppet-master/server.toml`, a machine-wide file that the user writes once. Claude can never pass flags to llama-server. It can only call `start`, `stop` or `restart`, and the bridge builds the command line from this file:
 
 ```toml
 binary = "~/Projects/llama.cpp/build/bin/llama-server"
@@ -99,7 +99,7 @@ cache_type_k = "q8_0"       # KV cache quantization (about half the memory of f1
 cache_type_v = "q8_0"
 cache_reuse = 256           # --cache-reuse: reuse KV cache across calls that share a prefix
 reasoning_budget = 0        # --reasoning-budget: 0 = suppress thinking, -1 = unlimited
-slot_save_path = "~/.flint/slots"
+slot_save_path = "~/.puppet-master/slots"
 autostart = true            # start on the first tool call if it's down
 idle_stop_min = 15          # free ~12GB of RAM after 15 idle minutes
 min_free_gb = 1.5           # memory headroom required beyond the model file
@@ -109,11 +109,11 @@ start_timeout_s = 180
 - **Start:**
   - **Memory preflight.** Free memory comes from `memory_pressure -Q` × `hw.memsize`. If it's below `model file size + KV estimate + min_free_gb`, the bridge returns `{"error": "insufficient_memory", "need_gb", "free_gb", "hint": "close apps"}` and does **not** launch.
   - **Already running.** If something already answers `/health` on the port, the bridge reuses it with `managed: false` and never kills it.
-  - **Launch.** Otherwise the bridge runs llama-server detached, writes `~/.flint/server.pid` and logs to `~/.flint/server.log`, then polls `/health` until it's ready or `start_timeout_s` runs out.
+  - **Launch.** Otherwise the bridge runs llama-server detached, writes `~/.puppet-master/server.pid` and logs to `~/.puppet-master/server.log`, then polls `/health` until it's ready or `start_timeout_s` runs out.
 - **Autostart:** when another tool finds Flint down and `autostart = true`, the bridge starts it first. Startup time doesn't count toward the 90s request timeout.
 - **Idle stop:** a background task stops a *managed* server after `idle_stop_min` with no calls, giving the memory back to macOS. The next call autostarts it again.
 - **Stop:** the bridge sends SIGTERM to the pid in the pidfile, then SIGKILL after 10s. It only ever stops servers it started (identified by pid plus a command-line match).
-- **Multiple sessions:** several Code-tab sessions each launch their own bridge, but they share one server through the pidfile and port. A lock file (`~/.flint/server.lock`) prevents two starts at once.
+- **Multiple sessions:** several Code-tab sessions each launch their own bridge, but they share one server through the pidfile and port. A lock file (`~/.puppet-master/server.lock`) prevents two starts at once.
 
 ### KV cache use (prompt-prefix reuse)
 
@@ -131,23 +131,23 @@ Flint has a 16,384-token window, and each call needs room for the prompt, the fi
 
 | Budget | Value | Where it comes from |
 |---|---|---|
-| Total window | 16,384 tokens | `flint_status().ctx` |
+| Total window | 16,384 tokens | `puppet_status().ctx` |
 | File content per chunk | ~10,000 tokens (~40 KB, roughly 800–1,000 lines of code) | `[budget].chunk_tokens` |
-| Chunks per `flint_read` | ≤ 8 (~80k tokens of source in total) | hard limit |
+| Chunks per `puppet_read` | ≤ 8 (~80k tokens of source in total) | hard limit |
 | Focused read shown to Flint | ~3,000 tokens of the best-matching blocks | `[budget].focus_tokens` |
 | Largest file text for focused reads | ~500,000 tokens (~2 MB) loaded and ranked | hard limit |
 | Region edits | files over ~2,000 tokens, ≤ 2,000 tokens of regions per file | `[budget].region_tokens` |
-| Editable text per `flint_write` | ≤ 6,000 tokens: whole small files plus the regions of big ones | hard limit |
-| Files per `flint_write` | ≤ 3 | hard limit |
+| Editable text per `puppet_write` | ≤ 6,000 tokens: whole small files plus the regions of big ones | hard limit |
+| Files per `puppet_write` | ≤ 3 | hard limit |
 
-- **Exposed to Claude:** `flint_status()` returns these budgets. Every tool description states its limit in one line, e.g. *"Max ~10k tokens of files per chunk, 8 chunks per call."*
+- **Exposed to Claude:** `puppet_status()` returns these budgets. Every tool description states its limit in one line, e.g. *"Max ~10k tokens of files per chunk, 8 chunks per call."*
 - **Preflight:** before calling Flint, the bridge estimates the input size (`ceil(bytes/4)`).
   - Over the limit, it returns `{"error": "over_budget", "est_tokens", "limit", "hint"}` without calling the model. The hint suggests narrower paths, a line range, or splitting the task.
 - **Claude's duties** (stated in the server instructions and `CLAUDE.md`):
   - Pass files, line ranges or globs, never whole directories. A big glob is fine: the read is searched.
   - Split big reads by question or by module.
   - Split a big write into one task per file, and name the function or class in the task so region edits pick the right blocks.
-- **Line ranges:** `flint_read` paths accept `path:start-end`, so Claude can send only the part that matters.
+- **Line ranges:** `puppet_read` paths accept `path:start-end`, so Claude can send only the part that matters.
 
 ### Policy layers (who does the job)
 
@@ -160,36 +160,36 @@ Flint has a 16,384-token window, and each call needs room for the prompt, the fi
 
 ### Call log
 
-Each call appends one line to `.flint/log.jsonl` with `{ts, tool, task_key, duration_ms, report_tokens, flint_tokens_in, flint_tokens_out, outcome, stripped, retries}`. The `outcome` field is one of `ok`, `check_failed`, `applied`, `rejected`, `miss`, or `offline`.
+Each call appends one line to `.puppet-master/log.jsonl` with `{ts, tool, task_key, duration_ms, report_tokens, flint_tokens_in, flint_tokens_out, outcome, stripped, retries}`. The `outcome` field is one of `ok`, `check_failed`, `applied`, `rejected`, `miss`, or `offline`.
 
-`uv run flint-stats` summarizes the log: calls per tool, accept rate, average report tokens, misses.
+`uv run puppet-stats` summarizes the log: calls per tool, accept rate, average report tokens, misses.
 
 ## Commands
 
 ```
 Venv:       uv venv --python 3.11            # .venv/ at project root (created)
 Install:    uv sync
-Run (MCP):  uv run flint-bridge                 # stdio; registered in Claude Desktop MCP config
+Run (MCP):  uv run puppet-master                 # stdio; registered in Claude Desktop MCP config
 Test:       uv run pytest -q
-Coverage:   uv run pytest --cov=flint_bridge --cov-report=term-missing
+Coverage:   uv run pytest --cov=puppet_master --cov-report=term-missing
 Lint:       uv run ruff check . && uv run ruff format --check .
-Stats:      uv run flint-stats [--since 7d]
+Stats:      uv run puppet-stats [--since 7d]
 Smoke:      uv run pytest -m live               # needs llama-server on :8000
 ```
 
 Example Claude Desktop MCP config entry:
 
 ```json
-"flint-engine": {
+"puppet-master": {
   "command": "uv",
-  "args": ["--directory", "/path/to/puppet-master", "run", "flint-bridge"]
+  "args": ["--directory", "/path/to/puppet-master", "run", "puppet-master"]
 }
 ```
 
 ## Project Structure
 
 ```
-src/flint_bridge/
+src/puppet_master/
   server.py        → FastMCP app, server instructions, tool registration
   llm.py           → llama-server client (timeout, JSON-schema grammar, cache_prompt)
   lifecycle.py     → server.toml, memory preflight, start/stop, pidfile/lock, idle stop
@@ -202,11 +202,11 @@ src/flint_bridge/
 tests/             → unit tests (mocked LLM) + tests/live/ (marker: live)
 docs/intent/       → confirmed intent
 docs/spec/         → this spec + CLAUDE.md snippet
-flint.toml         → per-project config (allow-list, budgets) — lives in target project
-.flint/            → staging/ + log.jsonl (gitignored, in target project)
+puppet-master.toml         → per-project config (allow-list, budgets) — lives in target project
+.puppet-master/            → staging/ + log.jsonl (gitignored, in target project)
 ```
 
-`flint.toml` example:
+`puppet-master.toml` example:
 
 ```toml
 [check]
@@ -240,9 +240,9 @@ def verify_claim(claim: Claim, lines: list[str], window: int = 2) -> bool:
   - Claim verification covers a quote that's off by one line, an invented file, an empty quote, and whitespace variations.
   - Other units: chunk boundaries, report truncation, allow-list rejection, patch hashing, apply refusal.
 - **Integration tests:** run against a throwaway git repo in `tmp_path`.
-  - A `flint_write` produces a patch and leaves the working tree unchanged.
-  - A failing check blocks `flint_apply`.
-  - A patch edited after its check blocks `flint_apply`.
+  - A `puppet_write` produces a patch and leaves the working tree unchanged.
+  - A failing check blocks `puppet_apply`.
+  - A patch edited after its check blocks `puppet_apply`.
   - Two failed attempts are logged as a miss.
 - **Adversarial fixtures:** canned "hallucinating" Flint responses (made-up functions, wrong line numbers, quotes that don't match) must all be stripped.
 - **Live smoke tests (`-m live`):** one round trip per tool against the real server. These aren't run in the default suite.
@@ -252,7 +252,7 @@ def verify_claim(claim: Claim, lines: list[str], window: int = 2) -> bool:
 
 - **Always:**
   - Verify every read claim mechanically.
-  - Stage writes and never touch the working tree outside `flint_apply`.
+  - Stage writes and never touch the working tree outside `puppet_apply`.
   - Run `subprocess` with argument lists only (no shell).
   - Cap every report at 500 tokens.
   - Log every call.
@@ -272,9 +272,9 @@ def verify_claim(claim: Claim, lines: list[str], window: int = 2) -> bool:
 
 ## Success Criteria
 
-1. Claude Desktop's Code tab lists the `flint-engine` tools, and `flint_status` returns `up: true`.
-2. On the adversarial fixtures, **100%** of fabricated claims are removed, and no unverified claim reaches a `flint_read` report.
-3. `flint_apply` refuses in every test case where the check failed, the hash doesn't match, or the patch is missing.
+1. Claude Desktop's Code tab lists the `puppet-master` tools, and `puppet_status` returns `up: true`.
+2. On the adversarial fixtures, **100%** of fabricated claims are removed, and no unverified claim reaches a `puppet_read` report.
+3. `puppet_apply` refuses in every test case where the check failed, the hash doesn't match, or the patch is missing.
 4. Every report is ≤ 500 tokens (asserted in tests, measured in the log).
 5. `uv run pytest -q` and `ruff check` pass, and the guardrail modules have ≥ 90% coverage.
 6. One-week trial (measured, not gated):
@@ -294,19 +294,19 @@ Flint is a reasoning model. Its chat template has no `enable_thinking` switch, a
 
 - **Default:** `server.toml` sets `reasoning_budget = 0`, which is passed as `--reasoning-budget 0`. The bridge also strips any `reasoning_content` or `<think>…</think>` from replies before parsing.
 - **Measured:** the bridge logs `reasoning_tokens` for every call, using `usage.completion_tokens_details.reasoning_tokens` when present, or an estimate from the stripped text.
-- **Fallback:** if Checkpoint A shows thinking can't be suppressed, or that suppressing it makes the answers worse, set `reasoning_budget = -1` (unlimited) plus `reasoning_reserve = 3000` in `flint.toml`. The bridge subtracts the reserve from `chunk_tokens` and adds it to `max_tokens`.
+- **Fallback:** if Checkpoint A shows thinking can't be suppressed, or that suppressing it makes the answers worse, set `reasoning_budget = -1` (unlimited) plus `reasoning_reserve = 3000` in `puppet-master.toml`. The bridge subtracts the reserve from `chunk_tokens` and adds it to `max_tokens`.
 - **Grammar:** the JSON schema has to apply to the answer, not to the thinking. Checkpoint A verifies that `json_schema` and the reasoning setting work together.
 
 ### Sample capture (keeps fine-tuning possible)
 
-When `samples = true` (the default) in `flint.toml`, every Flint call writes `{tool, system, user, raw_output, verdict}` to `.flint/samples/YYYY-MM-DD.jsonl` in the target project. The `verdict` is one of `verified`, `stripped:N`, `check_failed`, `applied`, `rejected` or `unverifiable`.
+When `samples = true` (the default) in `puppet-master.toml`, every Flint call writes `{tool, system, user, raw_output, verdict}` to `.puppet-master/samples/YYYY-MM-DD.jsonl` in the target project. The `verdict` is one of `verified`, `stripped:N`, `check_failed`, `applied`, `rejected` or `unverifiable`.
 
-The samples stay local, `.flint/` is gitignored, and the files are capped at 200MB in total (oldest deleted first). These samples are the only training data ADR 0002 would use.
+The samples stay local, `.puppet-master/` is gitignored, and the files are capped at 200MB in total (oldest deleted first). These samples are the only training data ADR 0002 would use.
 
 ## Open Questions
 
 1. ~~Dependencies in the check worktree~~ **Resolved:** projects keep a uv `.venv` at the project root, and the check worktree symlinks it (and `node_modules` if present) from the main tree.
-2. ~~Large files in `flint_write`~~ **Resolved (revised 2026-10-25):** files over ~2k tokens are edited by region (see Write pipeline). See [ADR 0003](../decisions/0003-bm25-focus-and-region-edits.md).
-3. ~~`flint_ask` scope~~ **Resolved:** `flint_ask` is for drafts and prose only. Its description sends questions about code to `flint_read`, and its output is always `verified: false`.
+2. ~~Large files in `puppet_write`~~ **Resolved (revised 2026-10-25):** files over ~2k tokens are edited by region (see Write pipeline). See [ADR 0003](../decisions/0003-bm25-focus-and-region-edits.md).
+3. ~~`puppet_ask` scope~~ **Resolved:** `puppet_ask` is for drafts and prose only. Its description sends questions about code to `puppet_read`, and its output is always `verified: false`.
 4. ~~The Flint model and llama.cpp PR~~ **Resolved:** PRs #30928 and #30929 were merged 2026-10-21, so llama.cpp is built from master. The model is `unsloth/flint-GGUF` `UD-IQ2_XXS` (11.86 GB), because Q2_K_XL and IQ2_M don't fit in 18GB. See [docs/setup/flint-server.md](../setup/flint-server.md).
 5. ~~Where `CLAUDE.md` goes~~ **Resolved:** per project. See Policy layers.

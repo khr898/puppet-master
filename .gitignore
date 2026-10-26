@@ -1,7 +1,10 @@
 .venv/
 .uv-cache/
-.flint/
+.puppet-master/
 __pycache__/
 .pytest_cache/
 .coverage
 .ruff_cache/
+.DS_Store
+.flint/
+relative/

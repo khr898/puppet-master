@@ -30,13 +30,13 @@ None of these numbers come from an independent test of *this* job (citing exact 
 ## Decision
 
 1. **Default: Flint UD-IQ2_XXS.** It's the only "big-brain" model that fits, and its MoE speed suits a delegation tool.
-2. **Run a bake-off before the trial** (T13). Run Flint UD-IQ2_XXS against Gemma 4 12B at Q4 using the bridge's own `flint-eval` task set, and keep whichever scores better on:
+2. **Run a bake-off before the trial** (T13). Run Flint UD-IQ2_XXS against Gemma 4 12B at Q4 using the bridge's own `puppet-eval` task set, and keep whichever scores better on:
    - the verified-claim rate,
    - the write check-pass rate,
    - speed (tok/s),
    - peak memory.
 
-   The bridge doesn't depend on the model: switching means changing `model` in `~/.flint/server.toml`. The `--alias flint` name stays the same.
+   The bridge doesn't depend on the model: switching means changing `model` in `~/.puppet-master/server.toml`. The `--alias flint` name stays the same.
 3. **One model at a time.** The "single local model" scope from the intent still holds; the bake-off only picks which one.
 
 ## Consequences
@@ -48,18 +48,18 @@ None of these numbers come from an independent test of *this* job (citing exact 
 - **Sampling.** Recursive recommends `temperature 1.0, top_p 0.95, top_k 20` for general use. The bridge uses `temperature 0.2`, because quote extraction and mechanical edits need determinism. The bake-off checks that this doesn't hurt quality.
 - **Possible build branch.** Unsloth's Flint guide points at its `iq1-narrow` llama.cpp branch for its low-bit quants. If mainline llama.cpp can't load UD-IQ2_XXS, use that branch (see the setup doc).
 - **Checkpoint A reasoning check (2026-10-24, measured).** With `--reasoning-budget 0`, a `json_schema` request returned valid JSON in `content`, with 0 chars of `reasoning_content` and no `<think>` text (20 completion tokens). `/props` reported `n_ctx` 16384. The `json_schema` grammar and the reasoning setting work together, so the `reasoning_reserve` fallback isn't needed for now. Answer quality with thinking off is still unmeasured (the T13 bake-off covers it). Free memory read 9% (about 1.7GB) with Flint loaded, so the memory preflight will rightly refuse a second start under this load.
-- **Bake-off result (2026-10-25, measured, Flint UD-IQ2_XXS only).** `flint-eval --label flint-iq2xxs` at `temperature 0.2`, `--reasoning-budget 0`, `ctx` 16384, saved in `evals/results/flint-iq2xxs.json`:
+- **Bake-off result (2026-10-25, measured, Flint UD-IQ2_XXS only).** `puppet-eval --label flint-iq2xxs` at `temperature 0.2`, `--reasoning-budget 0`, `ctx` 16384, saved in `evals/results/flint-iq2xxs.json`:
   - read: 80% answer-correct, 1.4 verified claims kept and 0.1 stripped per task, 0 unverifiable;
   - write: 100% check-pass;
   - speed: 34.6 tok/s, 0 reasoning tokens;
   - peak RSS 1.88GB (server process only; the model is memory-mapped, so this understates the real footprint);
   - 0 tasks with errors.
 
-  **Gemma 4 12B Q4 was not run**, by the user's choice, so this confirms Flint as the default but doesn't show it beats the alternative. Flint stays the default; the comparison remains open (`flint-eval --compare`) if the one-week trial shows a quality or memory problem.
+  **Gemma 4 12B Q4 was not run**, by the user's choice, so this confirms Flint as the default but doesn't show it beats the alternative. Flint stays the default; the comparison remains open (`puppet-eval --compare`) if the one-week trial shows a quality or memory problem.
 
 - **Phase 6 re-run (2026-10-25, measured, Flint UD-IQ2_XXS).** `evals/results/phase6-concrete.json`,
   temperature 0, prompts that require concrete values: read 85% answer-correct (65% in
-  `phase5-compact` before the fix), write 86% check-pass, 26.4 tok/s, 0 errors. `flint-savings`:
+  `phase5-compact` before the fix), write 86% check-pass, 26.4 tok/s, 0 errors. `puppet-savings`:
   74% of Claude tokens saved (reads 58%, writes 89%). The 65% dip was Flint answering by reference
   ("the keys listed in PROTECTED") plus run-to-run noise at temperature 0.2, not the model
   getting worse. `managed-pid-check` failed only because its line range had gone stale.
@@ -98,7 +98,7 @@ paging means swapping and a big slowdown. So the memory budget is still the file
 | Qwen 3.5 9B (dense) | 9B / 9B | Q4 ≈ 6 GB | The most headroom. Slower per token, because every parameter is active. |
 
 All the figures above are vendor-reported or from single third-party guides. Run each one through
-`flint-eval --label <name>` (see docs/setup/flint-server.md, "Using a different local model").
+`puppet-eval --label <name>` (see docs/setup/flint-server.md, "Using a different local model").
 
 ## Sources
 

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge import lifecycle
-from flint_bridge.config import Config
-from flint_bridge.lifecycle import (
+from puppet_master import lifecycle
+from puppet_master.config import Config
+from puppet_master.lifecycle import (
     IdleWatcher,
     ServerConfig,
     build_argv,
@@ -62,7 +62,7 @@ def cfg(port) -> Config:
 @pytest.fixture(autouse=True)
 def reap_servers(home):
     yield
-    pidfile = home / ".flint" / "server.pid"
+    pidfile = home / ".puppet-master" / "server.pid"
     if pidfile.exists():
         try:
             pid = json.loads(pidfile.read_text())["pid"]
@@ -73,7 +73,7 @@ def reap_servers(home):
 
 
 def write_toml(home: Path, body: str) -> Path:
-    path = home / ".flint" / "server.toml"
+    path = home / ".puppet-master" / "server.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
     return path
@@ -97,7 +97,7 @@ def test_load_server_config_expands_tilde_and_applies_defaults(home, model):
     write_toml(home, f'binary = "~/bin/llama-server"\nmodel = "{model}"\n')
     sc = load_server_config()
     assert sc.binary == home / "bin" / "llama-server"
-    assert sc.slot_save_path == home / ".flint" / "slots"
+    assert sc.slot_save_path == home / ".puppet-master" / "slots"
     assert (sc.host, sc.port, sc.ctx, sc.parallel) == ("127.0.0.1", 8000, 16384, 1)
     assert (sc.cache_type_k, sc.cache_reuse, sc.reasoning_budget) == ("q8_0", 256, 0)
     assert (sc.autostart, sc.idle_stop_min, sc.min_free_gb, sc.start_timeout_s) == (
@@ -145,7 +145,7 @@ def test_build_argv_is_exactly_the_specified_list():
         "--host", "127.0.0.1", "--port", "8000", "-c", "16384", "-np", "1", "-ngl", "99",
         "-fa", "on", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0",
         "--cache-reuse", "256", "--reasoning-budget", "0",
-        "--slot-save-path", str(Path("~/.flint/slots")), "--jinja",
+        "--slot-save-path", str(Path("~/.puppet-master/slots")), "--jinja",
     ]  # fmt: skip
 
 
@@ -195,7 +195,7 @@ async def test_start_launches_server_writes_pidfile_and_stop_terminates_it(sc, c
     out = await start(sc, cfg)
     assert out["up"] is True
     assert out["managed"] is True
-    info = json.loads((home / ".flint" / "server.pid").read_text())
+    info = json.loads((home / ".puppet-master" / "server.pid").read_text())
     assert info["pid"] == out["pid"]
     assert info["argv0"] == str(FAKE)
     assert "started" in info
@@ -205,13 +205,13 @@ async def test_start_launches_server_writes_pidfile_and_stop_terminates_it(sc, c
 
     assert result == {"stopped": True}
     assert not pid_alive(info["pid"])
-    assert not (home / ".flint" / "server.pid").exists()
+    assert not (home / ".puppet-master" / "server.pid").exists()
 
 
 async def test_start_logs_server_output_to_server_log(sc, cfg, home):
     await start(sc, cfg)
     stop(sc)
-    assert "fake llama-server starting" in (home / ".flint" / "server.log").read_text()
+    assert "fake llama-server starting" in (home / ".puppet-master" / "server.log").read_text()
 
 
 async def test_start_when_already_managed_and_up_does_not_launch_again(sc, cfg, monkeypatch):
@@ -243,7 +243,7 @@ async def test_start_reuses_a_server_it_did_not_start_and_never_kills_it(sc, cfg
 
 
 def test_stop_refuses_pidfile_pointing_at_unrelated_process(sc, home):
-    pidfile = home / ".flint" / "server.pid"
+    pidfile = home / ".puppet-master" / "server.pid"
     pidfile.parent.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(json.dumps({"pid": os.getpid(), "argv0": "x", "started": 0}))
     assert stop(sc) == {"stopped": False, "reason": "not_managed"}
@@ -255,7 +255,7 @@ def test_stop_without_pidfile_is_not_managed(sc):
 
 
 def test_stop_with_stale_pidfile_removes_it(sc, home):
-    pidfile = home / ".flint" / "server.pid"
+    pidfile = home / ".puppet-master" / "server.pid"
     pidfile.parent.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(json.dumps({"pid": 999_999, "argv0": "x", "started": 0}))
     assert stop(sc) == {"stopped": False, "reason": "not_managed"}
@@ -268,7 +268,7 @@ async def test_start_timeout_kills_process_and_returns_log_tail(sc, cfg, home, m
     out = await start(sc, cfg)
     assert out["error"] == "start_timeout"
     assert any("fake llama-server" in line for line in out["log_tail"])
-    assert not (home / ".flint" / "server.pid").exists()
+    assert not (home / ".puppet-master" / "server.pid").exists()
 
 
 async def test_start_reports_early_exit_without_waiting_for_timeout(sc, cfg, home, monkeypatch):
@@ -277,7 +277,7 @@ async def test_start_reports_early_exit_without_waiting_for_timeout(sc, cfg, hom
     out = await start(sc, cfg)
     assert out["error"] == "start_failed"
     assert time.monotonic() - began < 5
-    assert not (home / ".flint" / "server.pid").exists()
+    assert not (home / ".puppet-master" / "server.pid").exists()
 
 
 # ---- idle watcher -------------------------------------------------------------------------

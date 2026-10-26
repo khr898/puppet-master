@@ -12,11 +12,11 @@ from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
-from flint_bridge import lifecycle, savings, server
-from flint_bridge.config import Config, load_config
-from flint_bridge.llm import FlintOffline
-from flint_bridge.read import Usage, flint_read_impl
-from flint_bridge.write import flint_write_impl
+from puppet_master import lifecycle, savings, server
+from puppet_master.config import Config, load_config
+from puppet_master.llm import FlintOffline
+from puppet_master.read import Usage, puppet_read_impl
+from puppet_master.write import puppet_write_impl
 
 Ready = Callable[[], Awaitable[dict | None]] | None
 
@@ -42,7 +42,7 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
     paths = [f"{repo}/{p}" for p in task["paths"]]
     usage = Usage()
     try:
-        out = await flint_read_impl(
+        out = await puppet_read_impl(
             cfg, paths, task["question"], usage=usage, ready=ready, focus=True
         )
     except FlintOffline:
@@ -76,7 +76,7 @@ async def run_write_task(cfg: Config, task: dict, evals_dir: Path, ready: Ready 
     checks = {"test": [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"]}
     cfg = replace(cfg, check_default="test", check_commands=checks)
     usage = Usage()
-    with tempfile.TemporaryDirectory(prefix="flint-eval-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="puppet-eval-") as tmp:
         repo = Path(tmp).resolve() / "proj"
         shutil.copytree(
             evals_dir / "fixtures" / task["fixture"],
@@ -91,7 +91,7 @@ async def run_write_task(cfg: Config, task: dict, evals_dir: Path, ready: Ready 
         files = [str(repo / f) for f in task["files"]]
         texts = [Path(f).read_text() for f in files]
         try:
-            out = await flint_write_impl(cfg, task["task"], files, "", usage=usage, ready=ready)
+            out = await puppet_write_impl(cfg, task["task"], files, "", usage=usage, ready=ready)
         except FlintOffline:
             out = {"error": "flint_offline"}
         patch = Path(out["patch_path"]).read_text() if "patch_path" in out else None
@@ -215,7 +215,7 @@ def render_table(results: dict[str, dict]) -> str:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="flint-eval", description="Score the running model on the bridge's own tasks."
+        prog="puppet-eval", description="Score the running model on the bridge's own tasks."
     )
     parser.add_argument("--label", help="name for this run, e.g. flint-iq2xxs")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), help="print two saved runs")

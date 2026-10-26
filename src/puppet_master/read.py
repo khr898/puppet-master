@@ -3,11 +3,11 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from flint_bridge.budget import HEADROOM, PathError, expand, fits
-from flint_bridge.config import Config
-from flint_bridge.llm import complete
-from flint_bridge.report import est_tokens
-from flint_bridge.retrieve import READ_BLOCK_LINES, Block, rank, split_blocks, with_definitions
+from puppet_master.budget import HEADROOM, PathError, expand, fits
+from puppet_master.config import Config
+from puppet_master.llm import complete
+from puppet_master.report import est_tokens
+from puppet_master.retrieve import READ_BLOCK_LINES, Block, rank, split_blocks, with_definitions
 
 READ_MAX_TOKENS = 1500
 # Most file text a focused read will load and rank (~2 MB).
@@ -351,7 +351,7 @@ def _claim_report(claims: list[Claim]) -> list[dict]:
     return [{"text": c.text, "file": c.file, "line": c.line} for c in claims]
 
 
-async def flint_read_impl(
+async def puppet_read_impl(
     cfg: Config,
     paths: list[str],
     question: str,

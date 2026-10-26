@@ -7,10 +7,10 @@ import httpx
 import pytest
 import respx
 
-from flint_bridge import read, server
-from flint_bridge.config import Config
-from flint_bridge.report import compact, est_tokens
-from flint_bridge.savings import added_tokens
+from puppet_master import read, server
+from puppet_master.config import Config
+from puppet_master.report import compact, est_tokens
+from puppet_master.savings import added_tokens
 
 CFG = Config()
 URL = f"{CFG.base_url}/v1/chat/completions"
@@ -25,7 +25,7 @@ def reply(content) -> httpx.Response:
 
 
 def rows(root: Path) -> list[dict]:
-    return [json.loads(x) for x in (root / ".flint" / "log.jsonl").read_text().splitlines()]
+    return [json.loads(x) for x in (root / ".puppet-master" / "log.jsonl").read_text().splitlines()]
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def source(tmp_path) -> Path:
 async def test_a_read_costs_its_report_and_the_cited_lines_and_saves_what_flint_saw(up, source):
     claim = {"text": "uses pi", "file": str(source), "line": 5, "quote": "math.pi"}
     respx.post(URL).mock(return_value=reply({"answer": "uses pi", "claims": [claim]}))
-    out = await server.flint_read([str(source)], "what does area use?")
+    out = await server.puppet_read([str(source)], "what does area use?")
     [row] = rows(source.parent)
     cited = est_tokens("\n".join(SOURCE.splitlines()[2:7]))  # line 5, ±2
     assert row["cost_in"] == row["report_tokens"] + cited
@@ -62,7 +62,7 @@ async def test_a_read_costs_its_report_and_the_cited_lines_and_saves_what_flint_
 @respx.mock
 async def test_a_failed_read_costs_its_report_and_saves_nothing(up, tmp_path):
     missing = tmp_path / "nope.py"
-    await server.flint_read([str(missing)], "q")
+    await server.puppet_read([str(missing)], "q")
     [row] = rows(tmp_path)
     assert row["outcome"] == "error"
     assert row["cost_in"] == row["report_tokens"]
@@ -75,9 +75,9 @@ async def test_a_write_costs_the_patch_and_is_credited_only_when_applied(up, git
     original = app.read_text()
     files = {"files": [{"path": str(app), "content": GOOD}], "notes": "n"}
     respx.post(URL).mock(return_value=reply(files))
-    out = await server.flint_write("add sub", [str(app)])
+    out = await server.puppet_write("add sub", [str(app)])
     patch = Path(out["patch_path"]).read_text()
-    await server.flint_apply(str(git_repo), out["patch_id"])
+    await server.puppet_apply(str(git_repo), out["patch_id"])
 
     write_row, apply_row = rows(git_repo)
     assert write_row["cost_in"] == write_row["report_tokens"] + est_tokens(patch)
@@ -92,8 +92,8 @@ async def test_a_rejected_write_has_cost_but_no_savings(up, git_repo):
     app = git_repo / "app.py"
     files = {"files": [{"path": str(app), "content": GOOD}], "notes": "n"}
     respx.post(URL).mock(return_value=reply(files))
-    out = await server.flint_write("add sub", [str(app)])
-    await server.flint_reject(str(git_repo), out["patch_id"], "no")
+    out = await server.puppet_write("add sub", [str(app)])
+    await server.puppet_reject(str(git_repo), out["patch_id"], "no")
     for row in rows(git_repo):
         assert row["cost_in"] > 0
         assert row["avoided_in"] is None and row["avoided_out"] is None
@@ -104,7 +104,7 @@ async def test_an_ask_saves_claude_writing_the_draft(up, monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     respx.post(URL).mock(return_value=reply("Fix the login redirect"))
-    await server.flint_ask("Write a commit message")
+    await server.puppet_ask("Write a commit message")
     [row] = rows(tmp_path)
     assert row["avoided_out"] == est_tokens("Fix the login redirect")
     assert row["avoided_in"] is None

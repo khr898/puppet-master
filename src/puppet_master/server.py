@@ -8,13 +8,13 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from flint_bridge import ask, check, gitops, lifecycle, llm, read, samples, savings, staging, write
-from flint_bridge.budget import parse_path
-from flint_bridge.config import Config, load_config
-from flint_bridge.log import log_call
-from flint_bridge.report import cap, compact, est_tokens, factor_base
-from flint_bridge.savings import OUT_WEIGHT
-from flint_bridge.sysinfo import mem_pressure
+from puppet_master import ask, check, gitops, lifecycle, llm, read, samples, savings, staging, write
+from puppet_master.budget import parse_path
+from puppet_master.config import Config, load_config
+from puppet_master.log import log_call
+from puppet_master.report import cap, compact, est_tokens, factor_base
+from puppet_master.savings import OUT_WEIGHT
+from puppet_master.sysinfo import mem_pressure
 
 INSTRUCTIONS = (
     "You have a local model, Flint (16K context), via these tools. Before doing bulk work "
@@ -22,18 +22,18 @@ INSTRUCTIONS = (
     "files or logs, boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
     "refactors, drafts. Keep: planning, architecture, subtle bugs, security-sensitive code, "
     "final review, anything under ~200 output tokens. When you skip Flint, say why in one line. "
-    'Every Flint tool autostarts it, so never call flint_server("start") first. '
-    "Size every request to Flint's budget (call flint_status once per session): reads ≤10k "
+    'Every Flint tool autostarts it, so never call puppet_server("start") first. '
+    "Size every request to Flint's budget (call puppet_status once per session): reads ≤10k "
     "tokens per chunk, ≤8 chunks; writes ≤3 files, ≤6k tokens total. Pass files, "
     "path:start-end ranges or globs, never directories: a read over one chunk is searched "
     "(BM25) down to the blocks that match the question, so use it to find code instead of "
     "grepping, and a big file is written by region. Checks are mandatory: act only on "
     "verified claims and read the cited lines before acting; read every staged patch before "
-    "flint_apply; never apply Flint "
+    "puppet_apply; never apply Flint "
     "changes any other way. Before compiling or any other memory-heavy command (builds, large "
-    'test runs, Docker), call flint_server("stop") to give Flint\'s ~12GB back; the next Flint '
+    'test runs, Docker), call puppet_server("stop") to give Flint\'s ~12GB back; the next Flint '
     "call restarts it. When you have finished the delegated work for the user's request, call "
-    'flint_server("stop") too. If Flint is offline or fails twice, do it yourself and tell the '
+    'puppet_server("stop") too. If Flint is offline or fails twice, do it yourself and tell the '
     "user."
 )
 
@@ -80,7 +80,7 @@ async def _lifespan(_server: FastMCP):
             watcher.cancel()
 
 
-mcp = FastMCP("flint-engine", instructions=INSTRUCTIONS, lifespan=_lifespan)
+mcp = FastMCP("puppet-master", instructions=INSTRUCTIONS, lifespan=_lifespan)
 
 
 def tool(description: str):
@@ -187,7 +187,7 @@ def _capture(root: Path | None, cfg: Config, tool: str, usage: read.Usage, verdi
 
 
 @tool("Health and budgets of the local Flint model. Call once per session before delegating.")
-async def flint_status() -> dict:
+async def puppet_status() -> dict:
     started = time.perf_counter()
     cfg = load_config(Path.cwd())
     h = await llm.health(cfg)
@@ -210,19 +210,19 @@ async def flint_status() -> dict:
             "timeout_s": cfg.timeout_s,
         },
     }
-    return _report("flint_status", result, started)
+    return _report("puppet_status", result, started)
 
 
 @tool(
     "Start/stop/restart the local Flint llama-server using the fixed settings in "
-    "~/.flint/server.toml. Never call start first: every Flint tool autostarts it, and it stops "
-    "itself after idle_stop_min. Use stop when you have finished the delegated work for the "
-    "user's request (it reports the tokens Flint saved this session), when the user needs RAM "
-    "back, and always before compiling or other memory-heavy commands."
+    "~/.puppet-master/server.toml. Never call start first: every Flint tool autostarts it, "
+    "and it stops itself after idle_stop_min. Use stop when you have finished the delegated "
+    "work for the user's request (it reports the tokens Flint saved this session), when the user "
+    "needs RAM back, and always before compiling or other memory-heavy commands."
 )
-async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
+async def puppet_server(action: Literal["start", "stop", "restart"]) -> dict:
     started = time.perf_counter()
-    report = partial(_report, "flint_server", started=started, args={"action": action})
+    report = partial(_report, "puppet_server", started=started, args={"action": action})
     cfg = load_config(Path.cwd())
     sc, err = _server_config()
     if err:
@@ -259,15 +259,15 @@ async def flint_server(action: Literal["start", "stop", "restart"]) -> dict:
     "Anything over one chunk is searched: Flint sees only the blocks that best match the "
     "question, and `focus` in the report says how much it saw. Use it to find code instead of "
     "grepping. exhaustive=true reads everything instead: ≤10k tokens of file per chunk, ≤8 "
-    "chunks. Not for drafting prose (use flint_ask)."
+    "chunks. Not for drafting prose (use puppet_ask)."
 )
-async def flint_read(paths: list[str], question: str, exhaustive: bool = False) -> dict:
+async def puppet_read(paths: list[str], question: str, exhaustive: bool = False) -> dict:
     started = time.perf_counter()
     root = _root_of(paths)
     cfg = load_config(root or Path.cwd())
     usage = read.Usage()
     try:
-        result = await read.flint_read_impl(
+        result = await read.puppet_read_impl(
             cfg, paths, question, usage=usage, ready=partial(ensure_up, cfg), focus=not exhaustive
         )
     except llm.FlintOffline:
@@ -276,11 +276,11 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
         verdict = "unverifiable"
     else:
         verdict = f"stripped:{result['stripped']}" if result.get("stripped") else "verified"
-    _capture(root, cfg, "flint_read", usage, verdict)
+    _capture(root, cfg, "puppet_read", usage, verdict)
     result = cap(result)
     delivered = "answer" in result
     return _report(
-        "flint_read",
+        "puppet_read",
         factor_base(result),
         started,
         root,
@@ -299,19 +299,19 @@ async def flint_read(paths: list[str], question: str, exhaustive: bool = False) 
 @tool(
     "USE THIS for boilerplate, scaffolding, tests from a spec, docstrings, mechanical "
     "refactors. Flint writes a STAGED patch (your working tree is untouched) and tests run on it "
-    "automatically. You MUST read the patch at patch_path before calling flint_apply. To retry, "
+    "automatically. You MUST read the patch at patch_path before calling puppet_apply. To retry, "
     "call again with the same task and your feedback in constraints (max 2 attempts). A file "
     "over ~2k tokens is edited by region: Flint sees an outline and rewrites only the blocks "
     "that match the task, so name the function or class to change. Limits: ≤3 files, ≤6k "
     "tokens of editable text total."
 )
-async def flint_write(task: str, files: list[str], constraints: str = "") -> dict:
+async def puppet_write(task: str, files: list[str], constraints: str = "") -> dict:
     started = time.perf_counter()
     root = _root_of(files)
     cfg = load_config(root or Path.cwd())
     usage = read.Usage()
     try:
-        result = await write.flint_write_impl(
+        result = await write.puppet_write_impl(
             cfg, task, files, constraints, usage=usage, ready=partial(ensure_up, cfg)
         )
     except llm.FlintOffline:
@@ -322,11 +322,11 @@ async def flint_write(task: str, files: list[str], constraints: str = "") -> dic
     elif "patch_id" in result:
         outcome = "staged" if result["check"]["passed"] else "check_failed"
     if outcome in ("staged", "check_failed"):
-        _capture(root, cfg, "flint_write", usage, outcome, patch_id=result["patch_id"])
+        _capture(root, cfg, "puppet_write", usage, outcome, patch_id=result["patch_id"])
     elif result.get("error") == "unverifiable_output":
-        _capture(root, cfg, "flint_write", usage, "unverifiable")
+        _capture(root, cfg, "puppet_write", usage, "unverifiable")
     return _report(
-        "flint_write",
+        "puppet_write",
         result,
         started,
         root,
@@ -357,7 +357,7 @@ def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
     try:
         samples.record(root, load_config(root), tool=tool, verdict=verdict, patch_id=patch_id)
     except (OSError, ValueError):
-        pass  # the patch is already applied or rejected: a bad flint.toml must not hide that
+        pass  # already applied or rejected: a bad puppet-master.toml must not hide that
 
 
 @tool(
@@ -365,17 +365,17 @@ def _record_verdict(root: Path, tool: str, patch_id: str, verdict: str) -> None:
     "the patch file yourself and agree with it. Refuses if checks failed or the patch was "
     "modified."
 )
-async def flint_apply(root: str, patch_id: str) -> dict:
+async def puppet_apply(root: str, patch_id: str) -> dict:
     started = time.perf_counter()
     root_path = Path(root)
     meta = _staged_meta(root_path, patch_id)
-    result = await asyncio.to_thread(write.flint_apply_impl, root_path, patch_id)
+    result = await asyncio.to_thread(write.puppet_apply_impl, root_path, patch_id)
     outcome = "applied" if result.get("applied") else None
     if outcome:
-        _record_verdict(root_path, "flint_apply", patch_id, "applied")
+        _record_verdict(root_path, "puppet_apply", patch_id, "applied")
     avoided = (meta.get("avoided") or {}) if outcome else {}
     return _report(
-        "flint_apply",
+        "puppet_apply",
         result,
         started,
         root_path,
@@ -388,16 +388,16 @@ async def flint_apply(root: str, patch_id: str) -> dict:
 
 
 @tool("Reject a staged patch after review; counts as a failed attempt.")
-async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
+async def puppet_reject(root: str, patch_id: str, reason: str) -> dict:
     started = time.perf_counter()
     root_path = Path(root)
     key = _staged_meta(root_path, patch_id).get("task_key")
-    result = await asyncio.to_thread(write.flint_reject_impl, root_path, patch_id, reason)
+    result = await asyncio.to_thread(write.puppet_reject_impl, root_path, patch_id, reason)
     outcome = "rejected" if result.get("rejected") else None
     if outcome:
-        _record_verdict(root_path, "flint_reject", patch_id, "rejected")
+        _record_verdict(root_path, "puppet_reject", patch_id, "rejected")
     return _report(
-        "flint_reject",
+        "puppet_reject",
         result,
         started,
         root_path,
@@ -409,15 +409,15 @@ async def flint_reject(root: str, patch_id: str, reason: str) -> dict:
 
 
 @tool(
-    "Run an allow-listed check (names from flint.toml, e.g. 'test', 'lint') and get "
+    "Run an allow-listed check (names from puppet-master.toml, e.g. 'test', 'lint') and get "
     "only the failures. With patch_id, runs against that staged patch in an isolated worktree."
 )
-async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
+async def puppet_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     started = time.perf_counter()
     args = {"cmd": cmd, "root": root, "patch_id": patch_id}
     root_path = Path(root)
     if not root_path.is_absolute():
-        return _report("flint_check", {"error": "relative_path", "path": root}, started, args=args)
+        return _report("puppet_check", {"error": "relative_path", "path": root}, started, args=args)
     cfg = load_config(root_path)
     if patch_id is not None:
         result = await asyncio.to_thread(staging.check_staged_patch, cfg, root_path, patch_id, cmd)
@@ -426,26 +426,26 @@ async def flint_check(cmd: str, root: str, patch_id: str | None = None) -> dict:
     outcome = None
     if "passed" in result:
         outcome = "ok" if result["passed"] else "check_failed"
-    return _report("flint_check", result, started, root_path, outcome=outcome, args=args)
+    return _report("puppet_check", result, started, root_path, outcome=outcome, args=args)
 
 
 @tool(
     "Drafts and prose only (docs, emails, commit messages, rewrites, explanations of "
     "text you provide). Output is UNVERIFIED. For any question about code or files, use "
-    "flint_read instead."
+    "puppet_read instead."
 )
-async def flint_ask(prompt: str, context: str = "") -> dict:
+async def puppet_ask(prompt: str, context: str = "") -> dict:
     started = time.perf_counter()
     cfg = load_config(Path.cwd())
     usage = read.Usage()
     try:
-        result = await ask.flint_ask_impl(
+        result = await ask.puppet_ask_impl(
             cfg, prompt, context, usage=usage, ready=partial(ensure_up, cfg)
         )
     except llm.FlintOffline:
         result = {"error": "flint_offline"}
     return _report(
-        "flint_ask",
+        "puppet_ask",
         result,
         started,
         args={"prompt": prompt, "context": context},

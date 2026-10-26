@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent / "fixtures"))
 import hallucinations as hx  # noqa: E402
 
-from flint_bridge.read import (  # noqa: E402
+from puppet_master.read import (  # noqa: E402
     Claim,
     _norm,
     filter_claims,

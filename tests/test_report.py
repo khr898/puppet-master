@@ -1,6 +1,6 @@
 import json
 
-from flint_bridge.report import cap, est_tokens
+from puppet_master.report import cap, est_tokens
 
 LIMIT_CHARS = 500 * 4
 

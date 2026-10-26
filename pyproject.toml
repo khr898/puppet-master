@@ -1,5 +1,5 @@
 [project]
-name = "flint-bridge"
+name = "puppet-master"
 version = "0.1.0"
 description = "MCP bridge that delegates bulk work to a local llama-server (Flint) with enforced guardrails"
 readme = "README.md"
@@ -13,10 +13,10 @@ dependencies = [
 ]
 
 [project.scripts]
-flint-bridge = "flint_bridge.server:main"
-flint-stats = "flint_bridge.stats:main"
-flint-eval = "flint_bridge.eval:main"
-flint-savings = "flint_bridge.savings:main"
+puppet-master = "puppet_master.server:main"
+puppet-stats = "puppet_master.stats:main"
+puppet-eval = "puppet_master.eval:main"
+puppet-savings = "puppet_master.savings:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge import gitops, server
-from flint_bridge.check import extract_failures, run_check
-from flint_bridge.config import Config
+from puppet_master import gitops, server
+from puppet_master.check import extract_failures, run_check
+from puppet_master.config import Config
 
 SRC = Path(__file__).parent.parent / "src"
 PYTEST = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
@@ -102,16 +102,16 @@ def test_run_git_returns_stdout_and_raises_on_failure(tmp_path):
 
 
 async def test_flint_check_tool_runs_in_root_and_rejects_bad_names(tmp_path):
-    (tmp_path / "flint.toml").write_text(
+    (tmp_path / "puppet-master.toml").write_text(
         f"[check.commands]\ntest = {list(PYTEST)!r}\n".replace("'", '"')
     )
     make_project(tmp_path, False)
-    bad = await server.flint_check("test; ls", str(tmp_path))
+    bad = await server.puppet_check("test; ls", str(tmp_path))
     assert bad["error"] == "not_allowed"
-    out = await server.flint_check("test", str(tmp_path))
+    out = await server.puppet_check("test", str(tmp_path))
     assert out["passed"] is False
     assert out["failures"]
 
 
 async def test_flint_check_needs_an_absolute_root():
-    assert (await server.flint_check("test", "relative/dir"))["error"] == "relative_path"
+    assert (await server.puppet_check("test", "relative/dir"))["error"] == "relative_path"

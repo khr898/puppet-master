@@ -40,7 +40,7 @@ git clone -b iq1-narrow https://github.com/unslothai/llama.cpp ~/Projects/llama.
 cd ~/Projects/llama.cpp-unsloth && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j
 ```
 
-Then point `binary` in `~/.flint/server.toml` at `~/Projects/llama.cpp-unsloth/build/bin/llama-server`.
+Then point `binary` in `~/.puppet-master/server.toml` at `~/Projects/llama.cpp-unsloth/build/bin/llama-server`.
 
 ## 2. Download the model
 
@@ -102,7 +102,7 @@ Expected results:
 Symptoms: the startup log says the model doesn't fit in the Metal working set, it runs only a few tokens per second, or `memory_pressure` stays in the warning range.
 
 1. Close more apps and try again.
-2. Lower the context: set `ctx = 12288` in `~/.flint/server.toml` and `chunk_tokens = 7000` in the project's `flint.toml`. The bridge reads the real `n_ctx` from `/props`.
+2. Lower the context: set `ctx = 12288` in `~/.puppet-master/server.toml` and `chunk_tokens = 7000` in the project's `puppet-master.toml`. The bridge reads the real `n_ctx` from `/props`.
 3. Only as a last resort, raise the GPU memory limit until the next reboot: `sudo sysctl iogpu.wired_limit_mb=13312`. This is a system setting, so it's your call. It leaves macOS less headroom.
 
 Stop the test server with Ctrl-C once the checks pass.
@@ -112,7 +112,7 @@ Stop the test server with Ctrl-C once the checks pass.
 The bridge reads this file to launch Flint. Claude can only call start, stop or restart; it can never change these flags.
 
 ```bash
-mkdir -p ~/.flint/slots && cat > ~/.flint/server.toml <<'EOF'
+mkdir -p ~/.puppet-master/slots && cat > ~/.puppet-master/server.toml <<'EOF'
 binary = "~/Projects/llama.cpp/build/bin/llama-server"
 model  = "~/models/flint/flint-UD-IQ2_XXS.gguf"
 host = "127.0.0.1"
@@ -125,7 +125,7 @@ cache_type_k = "q8_0"
 cache_type_v = "q8_0"
 cache_reuse = 256
 reasoning_budget = 0
-slot_save_path = "~/.flint/slots"
+slot_save_path = "~/.puppet-master/slots"
 autostart = true
 idle_stop_min = 15
 min_free_gb = 1.5
@@ -138,9 +138,9 @@ EOF
 Once the bridge is built (Checkpoint A in `tasks/todo.md`), add this to Claude Desktop's MCP config:
 
 ```json
-"flint-engine": {
+"puppet-master": {
   "command": "uv",
-  "args": ["--directory", "/path/to/puppet-master", "run", "flint-bridge"]
+  "args": ["--directory", "/path/to/puppet-master", "run", "puppet-master"]
 }
 ```
 
@@ -150,12 +150,12 @@ The bridge talks to any OpenAI-compatible server through `/v1/chat/completions`.
 name of the role, not a requirement on the model.
 
 **Another GGUF on llama-server (recommended, fully managed):** change `model` in
-`~/.flint/server.toml` and call `flint_server("restart")`. The bridge launches it with
+`~/.puppet-master/server.toml` and call `puppet_server("restart")`. The bridge launches it with
 `--alias flint`, so nothing else changes. You keep autostart, idle stop, the memory preflight,
 `json_schema` grammar and prompt caching.
 
 **A server you run yourself (Ollama, LM Studio, mlx_lm.server, vLLM):** point the project's
-`flint.toml` at it and name the model as that server knows it:
+`puppet-master.toml` at it and name the model as that server knows it:
 
 ```toml
 [server]
@@ -164,11 +164,11 @@ model = "mellum2.1:12b"                # the id from GET /v1/models
 ctx = 16384                            # the context the server was started with
 ```
 
-Leave `~/.flint/server.toml` out (or set `autostart = false`). The bridge then uses whatever is
-running: health falls back from `/health` to `/v1/models`, and `flint_server` reports
+Leave `~/.puppet-master/server.toml` out (or set `autostart = false`). The bridge then uses whatever is
+running: health falls back from `/health` to `/v1/models`, and `puppet_server` reports
 `not_managed`, so starting and stopping are up to you (`ollama stop <model>`, or `keep_alive`).
 Structured output: llama-server, Ollama and LM Studio honour `response_format` `json_schema`;
 mlx_lm.server ignores it, so the bridge's JSON validation and single retry do the work there.
 
-After switching, run `flint-eval --label <name>` and `flint-eval --compare flint-iq2xxs <name>`.
-`temperature` (default 0) can be set under `[server]` in flint.toml.
+After switching, run `puppet-eval --label <name>` and `puppet-eval --compare flint-iq2xxs <name>`.
+`temperature` (default 0) can be set under `[server]` in puppet-master.toml.

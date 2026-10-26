@@ -2,7 +2,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from flint_bridge.config import Config
+from puppet_master.config import Config
 
 MAX_FAILURES = 20
 MAX_FAILURE_CHARS = 200

@@ -8,14 +8,14 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from flint_bridge import attempts, staging
-from flint_bridge.budget import HEADROOM, fits
-from flint_bridge.config import Config
-from flint_bridge.gitops import GitError, run_git, stage_and_check, toplevel
-from flint_bridge.read import Usage, _complete_json, _norm
-from flint_bridge.report import est_tokens
-from flint_bridge.retrieve import Block, rank, split_blocks
-from flint_bridge.savings import added_tokens
+from puppet_master import attempts, staging
+from puppet_master.budget import HEADROOM, fits
+from puppet_master.config import Config
+from puppet_master.gitops import GitError, run_git, stage_and_check, toplevel
+from puppet_master.read import Usage, _complete_json, _norm
+from puppet_master.report import est_tokens
+from puppet_master.retrieve import Block, rank, split_blocks
+from puppet_master.savings import added_tokens
 
 NOTES_CHARS = 300
 REPORT_FAILURES = 5
@@ -226,7 +226,7 @@ def _short_check(check: dict) -> dict:
     return {"passed": check["passed"], "failures": failures}
 
 
-async def flint_write_impl(
+async def puppet_write_impl(
     cfg: Config,
     task: str,
     files: list[str],
@@ -237,7 +237,7 @@ async def flint_write_impl(
 ) -> dict:
     """Have Flint rewrite `files`, stage the result as a patch, and check it in a worktree.
 
-    The working tree is never touched; `flint_apply` is the only way a patch reaches it.
+    The working tree is never touched; `puppet_apply` is the only way a patch reaches it.
     """
     usage = usage if usage is not None else Usage()
     if not files:
@@ -293,7 +293,7 @@ async def flint_write_impl(
     if cfg.check_default not in cfg.check_commands:
         return {
             "error": "no_check_configured",
-            "hint": "add [check] default and [check.commands] to the project's flint.toml",
+            "hint": "add [check] default and [check.commands] to the project's puppet-master.toml",
         }
     key = task_key(task)
     if attempts.give_up(root, key):
@@ -377,7 +377,7 @@ def _staged(root: Path, patch_id: str) -> tuple[dict | None, dict | None]:
     return meta, None
 
 
-def flint_apply_impl(root: Path, patch_id: str) -> dict:
+def puppet_apply_impl(root: Path, patch_id: str) -> dict:
     """Apply a staged patch to the working tree, but only if its check passed and it is unchanged.
 
     This is the only place a Flint change reaches the tree. Every refusal leaves the tree alone.
@@ -409,7 +409,7 @@ def flint_apply_impl(root: Path, patch_id: str) -> dict:
     return {"applied": True, "files": meta.get("files", [])}
 
 
-def flint_reject_impl(root: Path, patch_id: str, reason: str) -> dict:
+def puppet_reject_impl(root: Path, patch_id: str, reason: str) -> dict:
     """Discard a staged patch after review. A patch that passed its check counts as a failed try.
 
     One that failed its check was already counted when it was written, so it is not counted twice.

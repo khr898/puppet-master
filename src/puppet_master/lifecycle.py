@@ -9,8 +9,8 @@ import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-from flint_bridge import llm, sysinfo
-from flint_bridge.config import Config
+from puppet_master import llm, sysinfo
+from puppet_master.config import Config
 
 CACHE_TYPES = ("f16", "q8_0", "q4_0")
 _KV_GB_16K = {"f16": 1.0, "q8_0": 0.5, "q4_0": 0.25}  # per K or V tensor at 16K context
@@ -33,7 +33,7 @@ class ServerConfig:
     cache_type_v: str = "q8_0"
     cache_reuse: int = 256
     reasoning_budget: int = 0
-    slot_save_path: Path = Path("~/.flint/slots")
+    slot_save_path: Path = Path("~/.puppet-master/slots")
     autostart: bool = True
     idle_stop_min: int = 15
     min_free_gb: float = 1.5
@@ -41,11 +41,11 @@ class ServerConfig:
 
 
 def _flint_dir() -> Path:
-    return Path.home() / ".flint"
+    return Path.home() / ".puppet-master"
 
 
-def load_server_config(path: Path = Path("~/.flint/server.toml")) -> ServerConfig | None:
-    """Read ~/.flint/server.toml. None if missing; ValueError if it breaks a safety rule."""
+def load_server_config(path: Path = Path("~/.puppet-master/server.toml")) -> ServerConfig | None:
+    """Read ~/.puppet-master/server.toml. None if missing; ValueError if it breaks a safety rule."""
     path = path.expanduser()
     if not path.exists():
         return None
@@ -101,7 +101,7 @@ def preflight(sc: ServerConfig) -> dict | None:
         "error": "insufficient_memory",
         "need_gb": round(need, 1),
         "free_gb": round(free, 1),
-        "hint": "close apps or lower ctx in ~/.flint/server.toml",
+        "hint": "close apps or lower ctx in ~/.puppet-master/server.toml",
     }
 
 
@@ -249,8 +249,8 @@ class IdleWatcher:
     """Stops a managed server after sc.idle_stop_min with no tool calls from any bridge.
 
     Every Claude session runs its own bridge, and they share one server. Each use is stamped
-    in ~/.flint/last_used, so a session that has gone quiet never stops a server another
-    session (or flint-eval) is still using.
+    in ~/.puppet-master/last_used, so a session that has gone quiet never stops a server another
+    session (or puppet-eval) is still using.
     """
 
     def __init__(self, clock=time.time):

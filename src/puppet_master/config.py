@@ -48,9 +48,12 @@ def _typed(value, kind: type, name: str):
 
 
 def load_config(root: Path) -> Config:
-    """Read root/flint.toml if present, else defaults. FLINT_BASE_URL overrides base_url."""
+    """Read root/puppet-master.toml if present, else defaults.
+
+    PUPPET_BASE_URL and PUPPET_MODEL override base_url and model.
+    """
     cfg = Config()
-    path = root / "flint.toml"
+    path = root / "puppet-master.toml"
     if path.exists():
         data = tomllib.loads(path.read_text())
         server = data.get("server", {})
@@ -87,7 +90,10 @@ def load_config(root: Path) -> Config:
         cfg = replace(cfg, **updates)
         if not 0 <= cfg.reasoning_reserve < cfg.chunk_tokens:
             raise ValueError("[budget] reasoning_reserve must be at least 0 and below chunk_tokens")
-    env_url = os.environ.get("FLINT_BASE_URL")
+    env_url = os.environ.get("PUPPET_BASE_URL")
     if env_url:
-        cfg = replace(cfg, base_url=env_url)
+        cfg = replace(cfg, base_url=env_url.rstrip("/"))
+    env_model = os.environ.get("PUPPET_MODEL")
+    if env_model:
+        cfg = replace(cfg, model=env_model)
     return cfg

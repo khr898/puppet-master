@@ -2,7 +2,7 @@ import glob
 import re
 from pathlib import Path
 
-from flint_bridge.config import Config
+from puppet_master.config import Config
 
 _RANGE = re.compile(r"^(.*):(\d+)-(\d+)$")
 

@@ -218,7 +218,7 @@
       "id": "managed-pid-check",
       "error": null,
       "correct": false,
-      "answer": "managed_pid verifies the process by reading its pid and checking the command line, as shown in /path/to/puppet-master/src/flint_bridge/lifecycle.py, line 141, where the function is defined.",
+      "answer": "managed_pid verifies the process by reading its pid and checking the command line, as shown in /path/to/puppet-master/src/puppet_master/lifecycle.py, line 141, where the function is defined.",
       "savings": {
         "baseline": 60,
         "with_flint": 217,

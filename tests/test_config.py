@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge.config import Config, load_config
+from puppet_master.config import Config, load_config
 
 EXAMPLE = """
 [check]
@@ -21,7 +21,7 @@ def test_defaults_when_file_missing(tmp_path: Path):
 
 
 def test_parses_spec_example(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text(EXAMPLE)
+    (tmp_path / "puppet-master.toml").write_text(EXAMPLE)
     cfg = load_config(tmp_path)
     assert cfg.check_default == "test"
     assert cfg.check_commands["test"] == ["uv", "run", "pytest", "-q", "-x"]
@@ -31,7 +31,7 @@ def test_parses_spec_example(tmp_path: Path):
 
 
 def test_server_and_budget_keys_override_defaults(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text(
+    (tmp_path / "puppet-master.toml").write_text(
         '[server]\nbase_url = "http://127.0.0.1:9000"\nctx = 8192\n'
         "[budget]\nchunk_tokens = 5000\ncheck_timeout_s = 60\n"
     )
@@ -44,30 +44,30 @@ def test_server_and_budget_keys_override_defaults(tmp_path: Path):
 
 def test_temperature_defaults_to_zero_and_can_be_set(tmp_path: Path):
     assert load_config(tmp_path).temperature == 0
-    (tmp_path / "flint.toml").write_text("[server]\ntemperature = 0.4\n")
+    (tmp_path / "puppet-master.toml").write_text("[server]\ntemperature = 0.4\n")
     assert load_config(tmp_path).temperature == 0.4
 
 
 def test_env_overrides_base_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    (tmp_path / "flint.toml").write_text('[server]\nbase_url = "http://127.0.0.1:9000"\n')
-    monkeypatch.setenv("FLINT_BASE_URL", "http://127.0.0.1:7777")
+    (tmp_path / "puppet-master.toml").write_text('[server]\nbase_url = "http://127.0.0.1:9000"\n')
+    monkeypatch.setenv("PUPPET_BASE_URL", "http://127.0.0.1:7777")
     assert load_config(tmp_path).base_url == "http://127.0.0.1:7777"
 
 
 def test_rejects_string_command(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text('[check.commands]\ntest = "pytest"\n')
+    (tmp_path / "puppet-master.toml").write_text('[check.commands]\ntest = "pytest"\n')
     with pytest.raises(ValueError):
         load_config(tmp_path)
 
 
 def test_rejects_empty_command(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text("[check.commands]\ntest = []\n")
+    (tmp_path / "puppet-master.toml").write_text("[check.commands]\ntest = []\n")
     with pytest.raises(ValueError):
         load_config(tmp_path)
 
 
 def test_rejects_non_string_items(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text('[check.commands]\ntest = ["pytest", 1]\n')
+    (tmp_path / "puppet-master.toml").write_text('[check.commands]\ntest = ["pytest", 1]\n')
     with pytest.raises(ValueError):
         load_config(tmp_path)
 
@@ -80,7 +80,7 @@ def test_sample_capture_and_reasoning_reserve_default_to_on_and_zero(tmp_path: P
 
 
 def test_parses_samples_and_reasoning_reserve(tmp_path: Path):
-    (tmp_path / "flint.toml").write_text(
+    (tmp_path / "puppet-master.toml").write_text(
         "[log]\nsamples = false\n[budget]\nreasoning_reserve = 3000\n"
     )
     cfg = load_config(tmp_path)
@@ -100,12 +100,19 @@ def test_parses_samples_and_reasoning_reserve(tmp_path: Path):
     ],
 )
 def test_bad_samples_or_reserve_is_rejected(tmp_path: Path, toml: str):
-    (tmp_path / "flint.toml").write_text(toml)
+    (tmp_path / "puppet-master.toml").write_text(toml)
     with pytest.raises(ValueError):
         load_config(tmp_path)
 
 
 def test_model_id_defaults_to_the_flint_alias_and_can_be_set(tmp_path: Path):
     assert load_config(tmp_path).model == "flint"
-    (tmp_path / "flint.toml").write_text('[server]\nmodel = "mellum2.1"\n')
+    (tmp_path / "puppet-master.toml").write_text('[server]\nmodel = "mellum2.1"\n')
     assert load_config(tmp_path).model == "mellum2.1"
+
+
+def test_env_overrides_base_url_and_model(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("PUPPET_BASE_URL", "https://openrouter.ai/api/")
+    monkeypatch.setenv("PUPPET_MODEL", "some/model")
+    cfg = load_config(tmp_path)
+    assert (cfg.base_url, cfg.model) == ("https://openrouter.ai/api", "some/model")

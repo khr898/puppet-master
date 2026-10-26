@@ -10,16 +10,16 @@ import respx
 sys.path.insert(0, str(Path(__file__).parent / "fixtures"))
 import hallucinations as hx  # noqa: E402
 
-from flint_bridge import server  # noqa: E402
-from flint_bridge.config import Config  # noqa: E402
-from flint_bridge.read import (  # noqa: E402
+from puppet_master import server  # noqa: E402
+from puppet_master.config import Config  # noqa: E402
+from puppet_master.read import (  # noqa: E402
     SYSTEM_MERGE,
     Usage,
     chunk_files,
-    flint_read_impl,
     number_lines,
+    puppet_read_impl,
 )
-from flint_bridge.report import est_tokens  # noqa: E402
+from puppet_master.report import est_tokens  # noqa: E402
 
 CFG = Config()
 URL = f"{CFG.base_url}/v1/chat/completions"
@@ -58,7 +58,7 @@ def retarget(raw: dict, path: Path) -> dict:
 async def test_hallucinated_claims_are_stripped_and_good_ones_kept(shapes):
     claims = [retarget(c, shapes) for _, c in hx.BAD + hx.GOOD]
     respx.post(URL).mock(return_value=llm_reply(answer(claims)))
-    out = await flint_read_impl(CFG, [str(shapes)], "what does Circle do?")
+    out = await puppet_read_impl(CFG, [str(shapes)], "what does Circle do?")
     assert len(out["claims"]) == len(hx.GOOD)
     assert out["stripped"] == len(hx.BAD)
     assert out["answer_confidence"] == "degraded"
@@ -70,7 +70,7 @@ async def test_hallucinated_claims_are_stripped_and_good_ones_kept(shapes):
 async def test_clean_answer_is_not_degraded(shapes):
     good = retarget(hx.GOOD[0][1], shapes)
     respx.post(URL).mock(return_value=llm_reply(answer([good], "Circle.area uses pi")))
-    out = await flint_read_impl(CFG, [str(shapes)], "q")
+    out = await puppet_read_impl(CFG, [str(shapes)], "q")
     assert out == {
         "answer": "Circle.area uses pi",
         "claims": [{"text": "t", "file": str(shapes), "line": 10}],
@@ -82,7 +82,7 @@ async def test_clean_answer_is_not_degraded(shapes):
 @respx.mock
 async def test_invalid_json_twice_is_unverifiable(shapes):
     route = respx.post(URL).mock(return_value=llm_reply("not json"))
-    out = await flint_read_impl(CFG, [str(shapes)], "q")
+    out = await puppet_read_impl(CFG, [str(shapes)], "q")
     assert out == {"error": "unverifiable_output"}
     assert route.call_count == 2
 
@@ -90,7 +90,7 @@ async def test_invalid_json_twice_is_unverifiable(shapes):
 @respx.mock
 async def test_json_without_an_answer_counts_as_invalid(shapes):
     route = respx.post(URL).mock(return_value=llm_reply({"claims": []}))
-    out = await flint_read_impl(CFG, [str(shapes)], "q")
+    out = await puppet_read_impl(CFG, [str(shapes)], "q")
     assert out == {"error": "unverifiable_output"}
     assert route.call_count == 2
 
@@ -99,7 +99,7 @@ async def test_json_without_an_answer_counts_as_invalid(shapes):
 async def test_invalid_json_once_then_valid_succeeds_and_asks_for_json_only(shapes):
     route = respx.post(URL).mock(side_effect=[llm_reply("oops"), llm_reply(answer([], "ok"))])
     usage = Usage()
-    out = await flint_read_impl(CFG, [str(shapes)], "q", usage=usage)
+    out = await puppet_read_impl(CFG, [str(shapes)], "q", usage=usage)
     assert out["answer"] == "ok"
     assert sent_user_message(route, 1).endswith(
         "Your last reply was not valid JSON. Reply with JSON only."
@@ -116,7 +116,7 @@ async def test_line_range_sends_only_those_lines_with_original_numbers(shapes):
         )
     )
     # lines 10-20 of the fixture; line 15 is blank, the Rect class is on line 16
-    out = await flint_read_impl(CFG, [f"{shapes}:10-20"], "q")
+    out = await puppet_read_impl(CFG, [f"{shapes}:10-20"], "q")
     sent = sent_user_message(route)
     assert "   10|         return math.pi * self.radius ** 2" in sent
     assert "   20|" in sent
@@ -129,7 +129,7 @@ async def test_prompt_puts_files_first_in_sorted_order_and_question_last(tmp_pat
     (tmp_path / "b.py").write_text("B\n")
     (tmp_path / "a.py").write_text("A\n")
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    await flint_read_impl(CFG, [str(tmp_path / "b.py"), str(tmp_path / "a.py")], "why?")
+    await puppet_read_impl(CFG, [str(tmp_path / "b.py"), str(tmp_path / "a.py")], "why?")
     sent = sent_user_message(route)
     assert sent == (
         f"=== FILE {tmp_path / 'a.py'} ===\n    1| A\n"
@@ -141,7 +141,7 @@ async def test_prompt_puts_files_first_in_sorted_order_and_question_last(tmp_pat
 @respx.mock
 async def test_request_uses_the_read_schema_and_1500_max_tokens(shapes):
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    await flint_read_impl(CFG, [str(shapes)], "q")
+    await puppet_read_impl(CFG, [str(shapes)], "q")
     sent = json.loads(route.calls[0].request.content)
     assert sent["max_tokens"] == 1500
     schema = sent["response_format"]["json_schema"]["schema"]
@@ -152,13 +152,13 @@ async def test_request_uses_the_read_schema_and_1500_max_tokens(shapes):
 @respx.mock
 async def test_directory_relative_and_unreadable_paths_never_call_flint(tmp_path):
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    assert (await flint_read_impl(CFG, [str(tmp_path)], "q"))["error"] == "directory_not_allowed"
-    assert (await flint_read_impl(CFG, ["src/x.py"], "q"))["error"] == "relative_path"
+    assert (await puppet_read_impl(CFG, [str(tmp_path)], "q"))["error"] == "directory_not_allowed"
+    assert (await puppet_read_impl(CFG, ["src/x.py"], "q"))["error"] == "relative_path"
     missing = str(tmp_path / "nope.py")
-    assert await flint_read_impl(CFG, [missing], "q") == {"error": "unreadable", "path": missing}
+    assert await puppet_read_impl(CFG, [missing], "q") == {"error": "unreadable", "path": missing}
     binary = tmp_path / "bin.dat"
     binary.write_bytes(b"\xff\xfe\x00")
-    assert (await flint_read_impl(CFG, [str(binary)], "q"))["error"] == "unreadable"
+    assert (await puppet_read_impl(CFG, [str(binary)], "q"))["error"] == "unreadable"
     assert route.call_count == 0
 
 
@@ -166,7 +166,7 @@ async def test_directory_relative_and_unreadable_paths_never_call_flint(tmp_path
 async def test_bad_line_range_is_reported(shapes):
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
     for rng in ("0-5", "9-3", "500-600"):
-        out = await flint_read_impl(CFG, [f"{shapes}:{rng}"], "q")
+        out = await puppet_read_impl(CFG, [f"{shapes}:{rng}"], "q")
         assert out["error"] == "bad_range"
     assert route.call_count == 0
 
@@ -176,7 +176,7 @@ async def test_over_budget_makes_no_llm_call(tmp_path):
     big = tmp_path / "big.txt"
     big.write_text("x" * 40 * 1000 + "\n" + "y" * 4000)  # > 10k tokens numbered
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    out = await flint_read_impl(CFG, [str(big)], "q")
+    out = await puppet_read_impl(CFG, [str(big)], "q")
     assert out["error"] == "over_budget"
     assert out["limit"] == CFG.chunk_tokens
     assert out["est_tokens"] > CFG.chunk_tokens
@@ -193,12 +193,12 @@ async def test_ready_hook_runs_after_preflight_and_can_veto(shapes, tmp_path):
         return {"error": "insufficient_memory"}
 
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    assert await flint_read_impl(CFG, [str(tmp_path)], "q", ready=ready) == {
+    assert await puppet_read_impl(CFG, [str(tmp_path)], "q", ready=ready) == {
         "error": "directory_not_allowed",
         "path": str(tmp_path),
     }
     assert calls == []  # a bad request never starts Flint
-    out = await flint_read_impl(CFG, [str(shapes)], "q", ready=ready)
+    out = await puppet_read_impl(CFG, [str(shapes)], "q", ready=ready)
     assert out == {"error": "insufficient_memory"}
     assert calls == [1] and route.call_count == 0
 
@@ -221,7 +221,7 @@ def mock_up():
 
 
 def log_rows(root: Path) -> list[dict]:
-    return [json.loads(x) for x in (root / ".flint" / "log.jsonl").read_text().splitlines()]
+    return [json.loads(x) for x in (root / ".puppet-master" / "log.jsonl").read_text().splitlines()]
 
 
 @respx.mock
@@ -232,7 +232,7 @@ async def test_tool_report_fits_500_tokens_even_with_a_huge_answer(tool_env, sha
         for _ in range(200)
     ]
     respx.post(URL).mock(return_value=llm_reply(answer(claims, "long " * 3000)))
-    out = await server.flint_read([str(shapes)], "q")
+    out = await server.puppet_read([str(shapes)], "q")
     assert est_tokens(json.dumps(out)) <= 500
     assert out["truncated"] is True
 
@@ -242,10 +242,10 @@ async def test_tool_logs_usage_to_the_project_root(tool_env, shapes):
     mock_up()
     bad = retarget(hx.BAD[0][1], shapes)
     respx.post(URL).mock(return_value=llm_reply(answer([bad])))
-    out = await server.flint_read([str(shapes)], "q")
+    out = await server.puppet_read([str(shapes)], "q")
     assert out["stripped"] == 1
     [row] = log_rows(shapes.parent)  # not in a git repo, so the file's parent is the root
-    assert row["tool"] == "flint_read"
+    assert row["tool"] == "puppet_read"
     assert row["outcome"] == "ok"
     assert row["stripped"] == 1
     assert row["flint_tokens_in"] == 1000 and row["flint_tokens_out"] == 50
@@ -256,7 +256,7 @@ async def test_tool_logs_usage_to_the_project_root(tool_env, shapes):
 async def test_tool_returns_flint_offline(tool_env, shapes):
     mock_up()
     respx.post(URL).mock(side_effect=httpx.ConnectError("refused"))
-    out = await server.flint_read([str(shapes)], "q")
+    out = await server.puppet_read([str(shapes)], "q")
     assert out == {"error": "flint_offline"}
     assert log_rows(shapes.parent)[0]["outcome"] == "offline"
 
@@ -266,7 +266,7 @@ async def test_tool_over_budget_is_logged_and_does_not_start_flint(tool_env, tmp
     big = tmp_path / "big.txt"
     big.write_text("x" * 60000)
     health = respx.get(f"{CFG.base_url}/health").mock(return_value=httpx.Response(200))
-    out = await server.flint_read([str(big)], "q")
+    out = await server.puppet_read([str(big)], "q")
     assert out["error"] == "over_budget"
     assert health.call_count == 0
     assert log_rows(tmp_path)[0]["outcome"] == "over_budget"
@@ -274,14 +274,14 @@ async def test_tool_over_budget_is_logged_and_does_not_start_flint(tool_env, tmp
 
 async def test_tool_description_states_the_contract():
     tools = {t.name: t for t in await server.mcp.list_tools()}
-    desc = tools["flint_read"].description
+    desc = tools["puppet_read"].description
     assert "USE THIS FIRST" in desc and "path:start-end" in desc and "≤8 chunks" in desc
 
 
 @respx.mock
 async def test_an_oversized_question_is_over_budget_without_a_call(shapes):
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    out = await flint_read_impl(CFG, [str(shapes)], "why " * 16000)
+    out = await puppet_read_impl(CFG, [str(shapes)], "why " * 16000)
     assert out["error"] == "over_budget"
     assert out["limit"] == CFG.ctx - 512 - 1500
     assert route.call_count == 0
@@ -359,7 +359,7 @@ async def test_two_files_need_three_calls_two_map_and_one_merge(tmp_path):
         ]
     )
     usage = Usage()
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "what is said?", usage=usage)
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "what is said?", usage=usage)
     assert route.call_count == 3
     assert out == {
         "answer": "alpha and bravo",
@@ -386,7 +386,7 @@ async def test_map_calls_send_only_their_own_chunk(tmp_path):
     route = respx.post(URL).mock(
         side_effect=[llm_reply(answer([])), llm_reply(answer([])), merge_reply([])]
     )
-    await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert str(a) in user_of(route, 0) and str(b) not in user_of(route, 0)
     assert str(b) in user_of(route, 1) and str(a) not in user_of(route, 1)
 
@@ -401,7 +401,7 @@ async def test_merge_cannot_introduce_claims_it_was_not_given(tmp_path):
             merge_reply(["c99", "c2", "c2", "nonsense"]),
         ]
     )
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert [c["file"] for c in out["claims"]] == [str(b)]  # c99 and nonsense dropped, c2 once
 
 
@@ -415,7 +415,7 @@ async def test_stripped_is_summed_across_chunks_and_marks_the_answer_degraded(tm
             merge_reply(["c1"]),
         ]
     )
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert out["stripped"] == 2
     assert out["answer_confidence"] == "degraded"
     assert len(out["claims"]) == 1
@@ -431,7 +431,7 @@ async def test_unverified_claims_never_reach_the_merge_step(tmp_path):
             merge_reply([]),
         ]
     )
-    await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert "FABRICATED" not in user_of(route, 2)
 
 
@@ -446,7 +446,7 @@ async def test_merge_invalid_twice_is_unverifiable(tmp_path):
             llm_reply({"answer": "x", "claim_ids": "c1"}),  # wrong type is invalid too
         ]
     )
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert out == {"error": "unverifiable_output"}
     assert route.call_count == 4
     assert user_of(route, 3).endswith("Reply with JSON only.")
@@ -456,7 +456,7 @@ async def test_merge_invalid_twice_is_unverifiable(tmp_path):
 async def test_map_chunk_invalid_twice_stops_before_merge(tmp_path):
     a, b = two_files(tmp_path)
     route = respx.post(URL).mock(return_value=llm_reply("garbage"))
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert out == {"error": "unverifiable_output"}
     assert route.call_count == 2  # both attempts on chunk 1, nothing after
 
@@ -477,7 +477,7 @@ async def test_big_file_is_split_and_a_claim_verifies_against_the_right_slice(tm
         return llm_reply(answer([claim(big, 2400, "line number 2400 content")]))
 
     respx.post(URL).mock(side_effect=handler)
-    out = await flint_read_impl(CFG, [str(big)], "where is 2400?")
+    out = await puppet_read_impl(CFG, [str(big)], "where is 2400?")
     assert out["chunks"] == len(seen) == 3
     assert out["stripped"] == 2
     assert out["claims"] == [{"text": "t", "file": str(big), "line": 2400}]
@@ -498,10 +498,10 @@ async def test_eight_chunks_are_allowed_and_nine_are_over_budget(tmp_path):
     route = respx.post(URL).mock(
         side_effect=[llm_reply(answer([])) for _ in range(8)] + [merge_reply([])]
     )
-    out = await flint_read_impl(SMALL, files[:8], "q")
+    out = await puppet_read_impl(SMALL, files[:8], "q")
     assert out["chunks"] == 8 and route.call_count == 9
     route.reset()
-    out = await flint_read_impl(SMALL, files, "q")
+    out = await puppet_read_impl(SMALL, files, "q")
     assert out["error"] == "over_budget"
     assert out["limit"] == SMALL.chunk_tokens * SMALL.max_chunks
     assert route.call_count == 0
@@ -518,14 +518,14 @@ async def test_ready_hook_runs_once_for_a_multi_chunk_read(tmp_path):
     async def ready():
         calls.append(1)
 
-    await flint_read_impl(SMALL, [str(a), str(b)], "q", ready=ready)
+    await puppet_read_impl(SMALL, [str(a), str(b)], "q", ready=ready)
     assert calls == [1]
 
 
 @respx.mock
 async def test_no_files_is_an_error_without_a_call():
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    assert await flint_read_impl(CFG, [], "q") == {"error": "no_files"}
+    assert await puppet_read_impl(CFG, [], "q") == {"error": "no_files"}
     assert route.call_count == 0
 
 
@@ -536,7 +536,7 @@ async def test_merge_prompt_too_large_for_the_window_is_over_budget(tmp_path):
     route = respx.post(URL).mock(
         side_effect=[llm_reply(answer([], huge)), llm_reply(answer([], huge))]
     )
-    out = await flint_read_impl(SMALL, [str(a), str(b)], "q")
+    out = await puppet_read_impl(SMALL, [str(a), str(b)], "q")
     assert out["error"] == "over_budget"
     assert route.call_count == 2  # the merge call itself is never sent
 
@@ -558,7 +558,7 @@ async def test_focus_shows_only_the_matching_blocks_and_their_definitions(tmp_pa
     claim = {"text": "t", "file": str(mod), "line": line, "quote": "BACKOFF_BASE ** attempt"}
     route = respx.post(URL).mock(return_value=llm_reply(answer([claim])))
 
-    out = await flint_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
+    out = await puppet_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
 
     msg = sent_user_message(route)
     assert route.call_count == 1  # one focused chunk, no map-reduce
@@ -579,7 +579,7 @@ async def test_focus_strips_a_claim_on_a_line_flint_was_not_shown(tmp_path):
     hidden = mod.read_text().splitlines().index("def helper_5(value):") + 1
     claim = {"text": "t", "file": str(mod), "line": hidden, "quote": "def helper_5(value):"}
     respx.post(URL).mock(return_value=llm_reply(answer([claim])))
-    out = await flint_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
+    out = await puppet_read_impl(cfg, [str(mod)], "how does retry_backoff grow?", focus=True)
     assert out["claims"] == [] and out["stripped"] == 1
 
 
@@ -589,8 +589,8 @@ async def test_focus_lifts_the_chunk_limit_but_exhaustive_keeps_it(tmp_path):
     _filler_module(mod, n=400)
     cfg = replace(CFG, chunk_tokens=300, max_chunks=2, focus_tokens=60)
     respx.post(URL).mock(return_value=llm_reply(answer([])))
-    assert (await flint_read_impl(cfg, [str(mod)], "retry_backoff"))["error"] == "over_budget"
-    assert "focus" in await flint_read_impl(cfg, [str(mod)], "retry_backoff", focus=True)
+    assert (await puppet_read_impl(cfg, [str(mod)], "retry_backoff"))["error"] == "over_budget"
+    assert "focus" in await puppet_read_impl(cfg, [str(mod)], "retry_backoff", focus=True)
 
 
 @respx.mock
@@ -599,7 +599,7 @@ async def test_focus_with_no_matching_term_falls_back_to_the_normal_limits(tmp_p
     _filler_module(mod, n=400)
     cfg = replace(CFG, chunk_tokens=300, max_chunks=2, focus_tokens=60)
     route = respx.post(URL).mock(return_value=llm_reply(answer([])))
-    out = await flint_read_impl(cfg, [str(mod)], "zzz qqq", focus=True)
+    out = await puppet_read_impl(cfg, [str(mod)], "zzz qqq", focus=True)
     assert out["error"] == "over_budget" and route.call_count == 0
 
 
@@ -611,7 +611,7 @@ def test_number_lines_marks_each_gap_once():
 
 
 def test_prompts_ask_for_the_values_themselves_not_a_reference_to_them():
-    from flint_bridge.read import SYSTEM_READ
+    from puppet_master.read import SYSTEM_READ
 
     for prompt in (SYSTEM_READ, SYSTEM_MERGE):
         assert "State the names, values and numbers themselves" in prompt

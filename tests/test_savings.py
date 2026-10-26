@@ -5,10 +5,10 @@ import httpx
 import respx
 from test_eval import EVALS, URL, flint_up, model  # noqa: F401  (flint_up is an autouse fixture)
 
-from flint_bridge import eval as flint_eval
-from flint_bridge import savings, server
-from flint_bridge.config import Config
-from flint_bridge.report import compact, est_tokens, factor_base
+from puppet_master import eval as flint_eval
+from puppet_master import savings, server
+from puppet_master.config import Config
+from puppet_master.report import compact, est_tokens, factor_base
 
 BIG_FILE = "x = 1\n" * 2000  # ~3000 tokens
 
@@ -125,5 +125,5 @@ async def test_flint_savings_prints_each_task_and_the_total(tmp_path, capsys):
 def test_old_results_without_savings_still_compare(tmp_path, capsys):
     old = {"summary": {"read": {}, "write": {}, "speed": {}, "memory": {}, "run": {}}}
     (tmp_path / "a.json").write_text(json.dumps(old))
-    assert savings.render_saved(old) == "no savings data in this run; re-run with flint-savings"
+    assert savings.render_saved(old) == "no savings data in this run; re-run with puppet-savings"
     assert server  # imported for the autouse fixture's monkeypatch target

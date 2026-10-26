@@ -4,11 +4,11 @@ Spec: [docs/spec/SPEC.md](../docs/spec/SPEC.md) (approved) · Intent: [docs/inte
 
 ## Overview
 
-We are building `flint_bridge`, a Python stdio MCP server. It lets Claude (in Claude Desktop's Code tab) hand reads, writes, checks and drafts to a local llama-server ("Flint") while every guardrail is enforced in code:
+We are building `puppet_master`, a Python stdio MCP server. It lets Claude (in Claude Desktop's Code tab) hand reads, writes, checks and drafts to a local llama-server ("Flint") while every guardrail is enforced in code:
 
 - **Reads:** claims must quote the source, and the bridge verifies each quote.
 - **Writes:** Flint's changes only become staged patches, which run through tests in a git worktree.
-- **Apply:** `flint_apply` is the only route into the repo, and it refuses unless the patch passed its check.
+- **Apply:** `puppet_apply` is the only route into the repo, and it refuses unless the patch passed its check.
 
 Everything except the final live smoke test runs against a **mocked** llama-server, so the whole plan can be built without Flint running.
 
@@ -30,8 +30,8 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
    - `llm.py` and `gitops.py` are the only modules that talk to the network or to git.
 2. **Absolute paths everywhere.**
    - Every tool takes absolute paths.
-   - The project root is `git rev-parse --show-toplevel` of the first path, or of the `root` argument for `flint_check` and `flint_apply`.
-   - This avoids depending on the MCP server's working directory, which Claude Desktop doesn't guarantee. (This refines the spec: `flint_check` and `flint_apply` gain a `root` argument.)
+   - The project root is `git rev-parse --show-toplevel` of the first path, or of the `root` argument for `puppet_check` and `puppet_apply`.
+   - This avoids depending on the MCP server's working directory, which Claude Desktop doesn't guarantee. (This refines the spec: `puppet_check` and `puppet_apply` gain a `root` argument.)
 3. **git generates patches, not difflib.** This refines the spec. In a temporary worktree the bridge:
    - recreates the user's current state (tracked diff plus copied untracked files),
    - runs `git add -A` to set that as the baseline,
@@ -42,11 +42,11 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 4. **Flint returns whole files and never diff hunks.** Small models produce broken hunks.
 5. **Claims are verified before the merge step.** In multi-chunk reads, the merge step may only pick among already-verified claim ids, so it can't introduce new claims.
 6. **State on disk, in the target project:**
-   - `.flint/staging/<id>.patch` and `<id>.json`
-   - `.flint/attempts.json`
-   - `.flint/log.jsonl`
+   - `.puppet-master/staging/<id>.patch` and `<id>.json`
+   - `.puppet-master/attempts.json`
+   - `.puppet-master/log.jsonl`
 7. **Grammar-constrained JSON.** Requests that need structured output send `response_format` with a `json_schema`, so llama-server can only produce schema-valid JSON. They use `temperature: 0.2`.
-8. **The bridge owns llama-server.** It starts and stops it with the fixed settings in `~/.flint/server.toml`:
+8. **The bridge owns llama-server.** It starts and stops it with the fixed settings in `~/.puppet-master/server.toml`:
    - KV cache q8_0, flash attention, `-np 1`, `--cache-reuse`.
    - A memory preflight before every start.
    - Autostart on demand and idle stop after 15 minutes, so the ~12GB is only held while Flint is in use.
@@ -59,38 +59,38 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 ### Phase 1: Foundation and round trip
 - [x] T1: Project scaffold, config, git init
 - [x] T2: Report cap, token estimate, call log
-- [x] T3: LLM client (JSON-schema grammar, `cache_prompt`), `flint_status`, server instructions, MCP round trip
-- [x] T3b: Server lifecycle: `flint_server`, memory preflight, autostart, idle stop
+- [x] T3: LLM client (JSON-schema grammar, `cache_prompt`), `puppet_status`, server instructions, MCP round trip
+- [x] T3b: Server lifecycle: `puppet_server`, memory preflight, autostart, idle stop
 
 ### Checkpoint A: the bridge is reachable from Claude Desktop (passed 2026-10-24)
 
 ### Phase 2: Verified reads (highest-risk guardrail)
 - [x] T4: Line numbering and claim verification, with adversarial fixtures
-- [x] T5: `flint_read` single chunk, with budget preflight and line ranges
+- [x] T5: `puppet_read` single chunk, with budget preflight and line ranges
 - [x] T6: Multi-chunk map-reduce
 
 ### Checkpoint B: reads are safe
 
 ### Phase 3: Checks, staged writes, apply
-- [x] T7: Git helpers and `flint_check` (allow-list, failure extraction)
+- [x] T7: Git helpers and `puppet_check` (allow-list, failure extraction)
 - [x] T8: Worktree sandbox: baseline, symlinks, run the check
-- [x] T9: `flint_write` (budget, generation, staged patch, auto-check)
-- [x] T10: `flint_apply` and attempt tracking / miss
+- [x] T9: `puppet_write` (budget, generation, staged patch, auto-check)
+- [x] T10: `puppet_apply` and attempt tracking / miss
 
 ### Checkpoint C: writes are safe
 
 ### Phase 4: Finish
-- [x] T11: `flint_ask` and the `flint-stats` CLI
+- [x] T11: `puppet_ask` and the `puppet-stats` CLI
 - [x] T11b: Sample capture (keeps fine-tuning possible) and the reasoning reserve
 - [x] T12: Final tool descriptions, this project's `CLAUDE.md`, live smoke tests
-- [x] T13: `flint-eval` bake-off harness (Flint UD-IQ2_XXS vs Gemma 4 12B Q4; ADR 0001)
+- [x] T13: `puppet-eval` bake-off harness (Flint UD-IQ2_XXS vs Gemma 4 12B Q4; ADR 0001)
 
 ### Checkpoint D: spec success criteria 1–5 met → start the one-week trial
 
 ### Phase 5: Measured savings and leaner reports (goal of 2026-10-25)
 - [x] T14: Compact reports on the wire: no indented JSON, claim paths relative to a shared `base`
 - [x] T15: Per-call Claude cost and avoided tokens in the call log
-- [x] T16: `flint-stats` savings and accuracy section, from the real log
+- [x] T16: `puppet-stats` savings and accuracy section, from the real log
 - [x] T17: Lifecycle guidance: stop Flint when the delegated work is done, never start it by hand
 
 ### Phase 6: Read accuracy and any local model (2026-10-25)
@@ -106,14 +106,14 @@ Everything except the final live smoke test runs against a **mocked** llama-serv
 | Flint's thinking uses up the 16K window, or fights the JSON grammar | High | `--reasoning-budget 0`, thinking stripped from replies, a reserve-based fallback, and an empirical check at Checkpoint A |
 | A smaller model would do this job better | Med | The T13 bake-off against Gemma 4 12B Q4 decides, using the bridge's own tasks |
 | Q2 Flint can't produce valid JSON | Low | The JSON-schema grammar makes invalid structure impossible. One retry, then `unverifiable_output`, as a backup. |
-| Flint takes up RAM on an 18GB machine | Med | Memory preflight before start, idle stop after 15 minutes, and `flint_server("stop")` on demand. |
+| Flint takes up RAM on an 18GB machine | Med | Memory preflight before start, idle stop after 15 minutes, and `puppet_server("stop")` on demand. |
 | The bridge kills a server it didn't start | Med | The pidfile plus a command-line match. A server it didn't start is reported as `managed: false` and never stopped (T3b tests). |
 | The worktree check doesn't match the real tree (untracked files, deps) | Med | Untracked files are copied, `.venv` and `node_modules` are symlinked, and integration tests cover it (T8). |
 | Verification passes a real quote that Flint misread | Med | Out of reach of mechanical checks. The `CLAUDE.md` rule makes Claude read the cited lines before acting. |
-| The ~6k-token write limit makes `flint_write` rarely usable | Med | Measured in the trial log. Per-function edits are a possible v2. |
+| The ~6k-token write limit makes `puppet_write` rarely usable | Med | Measured in the trial log. Per-function edits are a possible v2. |
 | `memory_pressure` output varies by macOS version | Low | Parse failures return `null`. Never fatal. |
 
 ## Not in this plan (owned by the user)
 
-- Building llama.cpp, downloading `flint-UD-IQ2_XXS.gguf` (sized for 18GB) and writing `~/.flint/server.toml`, all one-time. Follow [docs/setup/flint-server.md](../docs/setup/flint-server.md). After that the bridge runs the server itself. This is needed only for Checkpoint A's live check and T12's live tests.
+- Building llama.cpp, downloading `flint-UD-IQ2_XXS.gguf` (sized for 18GB) and writing `~/.puppet-master/server.toml`, all one-time. Follow [docs/setup/flint-server.md](../docs/setup/flint-server.md). After that the bridge runs the server itself. This is needed only for Checkpoint A's live check and T12's live tests.
 - Running the one-week trial and comparing limit hits.

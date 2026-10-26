@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from flint_bridge.report import compact, est_tokens, factor_base
+from puppet_master.report import compact, est_tokens, factor_base
 
 # An output token costs more than an input token. 5x is a round figure for the price ratio.
 OUT_WEIGHT = 5
@@ -87,7 +87,7 @@ def totals(rows: list[dict]) -> dict:
 
 def render_saved(result: dict) -> str:
     if "savings" not in result.get("summary", {}):
-        return "no savings data in this run; re-run with flint-savings"
+        return "no savings data in this run; re-run with puppet-savings"
     lines = [f"{'task':26}{'without':>10}{'with':>10}{'saved':>10}"]
     for r in result["reads"] + result["writes"]:
         s = r["savings"]
@@ -102,10 +102,10 @@ def render_saved(result: dict) -> str:
 
 
 async def amain(argv: list[str] | None = None) -> int:
-    from flint_bridge import eval as flint_eval  # eval imports this module
+    from puppet_master import eval as flint_eval  # eval imports this module
 
     parser = argparse.ArgumentParser(
-        prog="flint-savings",
+        prog="puppet-savings",
         description="Estimate the Claude tokens Flint saves on the eval tasks.",
     )
     parser.add_argument("--label", default="savings", help="name for the saved run")

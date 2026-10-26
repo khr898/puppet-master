@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from flint_bridge import lifecycle, server
-from flint_bridge.lifecycle import ServerConfig
+from puppet_master import lifecycle, server
+from puppet_master.lifecycle import ServerConfig
 
 FAKE = Path(__file__).parent / "fixtures" / "fake_server.py"
 
@@ -24,7 +24,7 @@ def env(tmp_path, monkeypatch) -> Path:
 
 @pytest.fixture
 def running_config(env, tmp_path, monkeypatch) -> ServerConfig:
-    """A server.toml pointing at the fake server, and FLINT_BASE_URL to match."""
+    """A server.toml pointing at the fake server, and PUPPET_BASE_URL to match."""
     with socket.socket() as s:
         try:
             s.bind(("127.0.0.1", 0))
@@ -33,13 +33,13 @@ def running_config(env, tmp_path, monkeypatch) -> ServerConfig:
         port = s.getsockname()[1]
     model = tmp_path / "flint-test.gguf"
     model.write_bytes(b"x")
-    (env / ".flint").mkdir()
-    (env / ".flint" / "server.toml").write_text(
+    (env / ".puppet-master").mkdir()
+    (env / ".puppet-master" / "server.toml").write_text(
         f'binary = "{FAKE}"\nmodel = "{model}"\nport = {port}\nstart_timeout_s = 10\n'
     )
-    monkeypatch.setenv("FLINT_BASE_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("PUPPET_BASE_URL", f"http://127.0.0.1:{port}")
     yield lifecycle.load_server_config()
-    pidfile = env / ".flint" / "server.pid"
+    pidfile = env / ".puppet-master" / "server.pid"
     if pidfile.exists():
         try:
             os.kill(json.loads(pidfile.read_text())["pid"], 9)
@@ -49,33 +49,33 @@ def running_config(env, tmp_path, monkeypatch) -> ServerConfig:
 
 async def test_flint_server_tool_is_registered_with_directive_description():
     tools = {t.name: t for t in await server.mcp.list_tools()}
-    desc = tools["flint_server"].description
+    desc = tools["puppet_server"].description
     assert "Use stop when you have finished the delegated work" in desc
     assert "compiling" in desc
-    assert "start" in json.dumps(tools["flint_server"].inputSchema)
+    assert "start" in json.dumps(tools["puppet_server"].inputSchema)
 
 
 async def test_flint_server_without_config_returns_no_server_config():
-    out = await server.flint_server("start")
+    out = await server.puppet_server("start")
     assert out["error"] == "no_server_config"
     assert "flint-server.md" in out["hint"]
 
 
 async def test_flint_server_with_invalid_config_returns_bad_server_config(env):
-    (env / ".flint").mkdir()
-    (env / ".flint" / "server.toml").write_text('binary = "/nope"\nmodel = "/nope"\n')
-    assert (await server.flint_server("start"))["error"] == "bad_server_config"
+    (env / ".puppet-master").mkdir()
+    (env / ".puppet-master" / "server.toml").write_text('binary = "/nope"\nmodel = "/nope"\n')
+    assert (await server.puppet_server("start"))["error"] == "bad_server_config"
 
 
 async def test_flint_server_start_then_stop(running_config):
-    started = await server.flint_server("start")
+    started = await server.puppet_server("start")
     assert started["up"] is True
     assert started["managed"] is True
     assert isinstance(started["pid"], int)
     assert started["rss_gb"] is None or started["rss_gb"] >= 0
     assert started["mem_free_pct"] == 60
 
-    stopped = await server.flint_server("stop")
+    stopped = await server.puppet_server("stop")
     assert stopped["up"] is False
     assert stopped["managed"] is False
     assert stopped["pid"] is None
@@ -86,38 +86,38 @@ async def test_stop_reports_the_tokens_saved_this_session(running_config, monkey
     monkeypatch.setattr(server, "session", server.Session())
     server.session.add(cost=100, avoided=1500)
     server.session.add(cost=50, avoided=0)
-    stopped = await server.flint_server("stop")
+    stopped = await server.puppet_server("stop")
     assert stopped["session"] == {"calls": 2, "saved_tokens": 1350}
 
 
 async def test_flint_server_restart_gives_a_new_pid(running_config):
-    first = await server.flint_server("start")
-    second = await server.flint_server("restart")
+    first = await server.puppet_server("start")
+    second = await server.puppet_server("restart")
     assert second["up"] is True and second["managed"] is True
     assert second["pid"] != first["pid"]
 
 
 async def test_flint_server_start_reports_insufficient_memory(running_config, monkeypatch):
     monkeypatch.setattr(lifecycle, "free_gb", lambda: 0.1)
-    assert (await server.flint_server("start"))["error"] == "insufficient_memory"
+    assert (await server.puppet_server("start"))["error"] == "insufficient_memory"
 
 
 async def test_status_reports_lifecycle_fields(running_config):
-    before = await server.flint_status()
+    before = await server.puppet_status()
     assert (before["up"], before["managed"], before["pid"], before["autostart"]) == (
         False,
         False,
         None,
         True,
     )
-    started = await server.flint_server("start")
-    after = await server.flint_status()
+    started = await server.puppet_server("start")
+    after = await server.puppet_status()
     assert (after["up"], after["managed"], after["pid"]) == (True, True, started["pid"])
-    await server.flint_server("stop")
+    await server.puppet_server("stop")
 
 
 async def test_status_without_server_config_has_null_lifecycle_fields():
-    out = await server.flint_status()
+    out = await server.puppet_status()
     assert (out["managed"], out["pid"], out["autostart"]) == (False, None, None)
 
 
@@ -143,8 +143,8 @@ def fakes(monkeypatch):
 def install_config(env, tmp_path, autostart: bool = True):
     model = tmp_path / "m.gguf"
     model.write_bytes(b"x")
-    (env / ".flint").mkdir(exist_ok=True)
-    (env / ".flint" / "server.toml").write_text(
+    (env / ".puppet-master").mkdir(exist_ok=True)
+    (env / ".puppet-master" / "server.toml").write_text(
         f'binary = "{FAKE}"\nmodel = "{model}"\nautostart = {str(autostart).lower()}\n'
     )
 
