@@ -33,7 +33,7 @@ All figures come from the saved runs in [evals/results](evals/results) and from 
 
 | | |
 |---|---|
-| Tests | **362 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
+| Tests | **363 passed**, 22 skipped, 4 live tests deselected (they need a running model server) |
 | Skipped | Port-binding tests, which skip themselves inside a sandbox that forbids binding a port |
 | Line coverage | **89%** of 1,847 statements (`pytest --cov`) |
 | Lint | `ruff check` and `ruff format --check` clean |
@@ -50,11 +50,14 @@ Worker model: **Flint** `UD-IQ2_XXS` (a 40B-A2.5B mixture-of-experts model, 2-bi
 
 | Run | Read answers correct | Write checks pass | Claude tokens saved | Speed |
 |---|---|---|---|---|
-| Run 1 | 90% (18/20) | 86% (6/7) | **74.1%** (reads 58.5%, writes 88.2%) | 26.5 tok/s |
-| Run 2 (same setup) | 85% (17/20) | 86% (6/7) | **74.2%** (reads 57.8%, writes 89.0%) | 26.4 tok/s |
+| Run 1 | 100% (20/20) | 86% (6/7) | **74.1%** (reads 58.5%, writes 88.2%) | 26.5 tok/s |
+| Run 2 (same setup) | 95% (19/20) | 86% (6/7) | **74.2%** (reads 57.8%, writes 89.0%) | 26.4 tok/s |
 
-The raw results are in `evals/results/`. Across both runs there were 0 errors, 0 unverifiable outputs and 0 reasoning tokens. The 5-point
-difference between the runs is run-to-run noise on 20 questions, so read it as roughly 85-90%.
+The raw results are in `evals/results/`. Across both runs there were 0 errors, 0 unverifiable outputs and 0 reasoning tokens. Read accuracy is a keyword check: an answer counts if it mentions the required terms, so it can
+over-credit as well as under-credit. Two answers first marked wrong said "rounding up" for `ceil`;
+the grader now accepts listed alternatives and the saved answers were re-scored offline (no model
+re-run). One answer is still a true miss (a vague answer that omitted two required checks). On 20
+questions, read this as roughly 95-100%, not a precise rate.
 Savings are **estimates** from character counts, not billed-token measurements, and they cover
 delegable work only; planning and review stay with Claude.
 
@@ -62,7 +65,7 @@ A second model, for contrast (JetBrains Mellum2.1 12B-A2.5B, Q4_K_M, 8.1 GB), on
 
 | | Flint IQ2_XXS | Mellum2.1, thinking off | Mellum2.1, thinking on |
 |---|---|---|---|
-| Read answers correct | **90%** | 60% | 85% |
+| Read answers correct | **100%** | 65% | 85% |
 | Write checks pass | **86%** | 71% | 71% |
 | Claude tokens saved | **74%** | 58% | 57% |
 | Avg model time per read | 7.8 s | 7.0 s | 89 s |
@@ -266,7 +269,7 @@ only when applied, so rejected and failed delegations count against the worker. 
 
 ```bash
 uv sync
-uv run pytest -q                      # 362 tests; live tests are deselected
+uv run pytest -q                      # 363 tests; live tests are deselected
 uv run pytest -m live                 # needs a model server on :8000
 uv run ruff check . && uv run ruff format --check .
 ```

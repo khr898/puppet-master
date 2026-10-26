@@ -21,10 +21,17 @@ from puppet_master.write import puppet_write_impl
 Ready = Callable[[], Awaitable[dict | None]] | None
 
 
-def answer_correct(answer: str, must_mention: list[str]) -> bool:
-    """True if the answer contains every keyword, ignoring case."""
+def answer_correct(
+    answer: str, must_mention: list[str], alternatives: dict[str, list[str]] | None = None
+) -> bool:
+    """True if the answer contains every keyword (or one of its alternatives), ignoring case."""
+
     # Whole-word match, so a keyword like "2" doesn't match the "2" inside "12".
-    return all(re.search(rf"(?<!\w){re.escape(k)}(?!\w)", answer, re.I) for k in must_mention)
+    def has(word: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(word)}(?!\w)", answer, re.I) is not None
+
+    alternatives = alternatives or {}
+    return all(any(has(w) for w in [k, *alternatives.get(k, [])]) for k in must_mention)
 
 
 def _avg(values: list[float]) -> float | None:
@@ -47,7 +54,9 @@ async def run_read_task(cfg: Config, task: dict, repo: Path, ready: Ready = None
         )
     except FlintOffline:
         out = {"error": "flint_offline"}
-    correct = "answer" in out and answer_correct(out["answer"], task["must_mention"])
+    correct = "answer" in out and answer_correct(
+        out["answer"], task["must_mention"], task.get("alternatives")
+    )
     return {
         "id": task["id"],
         "error": out.get("error"),

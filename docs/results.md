@@ -58,19 +58,33 @@ Same code and 27 tasks, final configuration:
 
 | | Flint IQ2_XXS | Mellum2.1, thinking off | Mellum2.1, thinking on |
 |---|---|---|---|
-| Read answers correct | **90%** | 60% | 85% |
+| Read answers correct | **100%** | 65% | 85% |
 | Write checks pass | **86%** | 71% | 71% |
 | Claude tokens saved | **74%** | 58% | 57% |
 | Avg model time per read | 7.8 s | 7.0 s | 89 s |
 | Model size | 11.9 GB | 8.1 GB | 8.1 GB |
 
-A re-run of the default model gave 85% reads, 86% writes, 74.2% saved, 26.4 tok/s: treat reads as
-roughly 85-90%. A small model with thinking off tends to answer by reference ("the listed keys")
+A re-run of the default model gave 95% reads, 86% writes, 74.2% saved, 26.4 tok/s: treat reads as
+roughly 95-100%. A small model with thinking off tends to answer by reference ("the listed keys")
 instead of stating values, which a prompt change (concrete values) fixed for the default model.
 Accuracy depends strongly on the model and its settings; no larger or higher-precision model has been
 benchmarked yet.
 
+## How reads are graded
+
+A read counts as correct if the answer mentions every required keyword for that question (a
+keyword check, no human review). It can over-credit (a keyword appears but the point is wrong) and
+under-credit (a right answer in different words). The grader accepts listed alternatives, such as
+"rounding up" for `ceil`. After adding them, the saved answers were re-scored offline: the default
+model went from 18/20 to 20/20 and from 17/20 to 19/20, and the second model from 12/20 to 13/20.
+The stored result files keep their original `correct` flags.
+
+Where reads went wrong, no failure came from a paraphrased quote: those are stripped by
+verification and none of the wrong answers had stripped claims. The remaining true miss was a vague
+answer built on real, verified quotes that left out part of the question. Verification proves a quote
+exists, not that it answers the question.
+
 ## Test suite
 
-362 passed, 22 skipped (tests that need a free network port), about 89% line coverage; the guardrail
+363 passed, 22 skipped (tests that need a free network port), about 89% line coverage; the guardrail
 modules (read, write, check, report) are at 96% or higher. Ruff lint and format are clean.

@@ -1,132 +1,278 @@
 [
   {
     "id": "cap-protected-keys",
-    "paths": ["src/puppet_master/report.py"],
+    "paths": [
+      "src/puppet_master/report.py"
+    ],
     "question": "Which keys does cap() never remove from a result?",
-    "must_mention": ["error", "patch_id", "patch_path", "passed", "applied"]
+    "must_mention": [
+      "error",
+      "patch_id",
+      "patch_path",
+      "passed",
+      "applied"
+    ]
   },
   {
     "id": "est-tokens",
-    "paths": ["src/puppet_master/report.py"],
+    "paths": [
+      "src/puppet_master/report.py"
+    ],
     "question": "How does est_tokens estimate the number of tokens in a string?",
-    "must_mention": ["ceil", "4"]
+    "must_mention": [
+      "ceil",
+      "4"
+    ],
+    "alternatives": {
+      "ceil": [
+        "round up",
+        "rounds up",
+        "rounded up",
+        "rounding up"
+      ]
+    }
   },
   {
     "id": "give-up-threshold",
-    "paths": ["src/puppet_master/attempts.py"],
+    "paths": [
+      "src/puppet_master/attempts.py"
+    ],
     "question": "After how many failed attempts does give_up return True?",
-    "must_mention": ["2"]
+    "must_mention": [
+      "2"
+    ]
   },
   {
     "id": "budget-headroom",
-    "paths": ["src/puppet_master/budget.py"],
+    "paths": [
+      "src/puppet_master/budget.py"
+    ],
     "question": "How many tokens of headroom does the budget module keep free in the context window?",
-    "must_mention": ["512"]
+    "must_mention": [
+      "512"
+    ]
   },
   {
     "id": "failure-limits",
-    "paths": ["src/puppet_master/check.py"],
+    "paths": [
+      "src/puppet_master/check.py"
+    ],
     "question": "What is the maximum number of failure lines extract_failures returns, and the maximum length of each line?",
-    "must_mention": ["20", "200"]
+    "must_mention": [
+      "20",
+      "200"
+    ]
   },
   {
     "id": "log-outcomes",
-    "paths": ["src/puppet_master/log.py"],
+    "paths": [
+      "src/puppet_master/log.py"
+    ],
     "question": "Which outcome values does log_call accept?",
-    "must_mention": ["check_failed", "over_budget", "miss"]
+    "must_mention": [
+      "check_failed",
+      "over_budget",
+      "miss"
+    ]
   },
   {
     "id": "config-defaults",
-    "paths": ["src/puppet_master/config.py"],
+    "paths": [
+      "src/puppet_master/config.py"
+    ],
     "question": "What are the default values of chunk_tokens, max_chunks and write_max_tokens?",
-    "must_mention": ["10000", "8", "6000"]
+    "must_mention": [
+      "10000",
+      "8",
+      "6000"
+    ]
   },
   {
     "id": "samples-cap",
-    "paths": ["src/puppet_master/samples.py"],
+    "paths": [
+      "src/puppet_master/samples.py"
+    ],
     "question": "How large can the samples folder get before files are deleted, and which files are deleted first?",
-    "must_mention": ["200", "oldest"]
+    "must_mention": [
+      "200",
+      "oldest"
+    ]
   },
   {
     "id": "decided-outcomes",
-    "paths": ["src/puppet_master/stats.py"],
+    "paths": [
+      "src/puppet_master/stats.py"
+    ],
     "question": "Which outcomes count as decided when computing the accept rate?",
-    "must_mention": ["applied", "rejected", "miss", "check_failed"]
+    "must_mention": [
+      "applied",
+      "rejected",
+      "miss",
+      "check_failed"
+    ]
   },
   {
     "id": "managed-pid-check",
-    "paths": ["src/puppet_master/lifecycle.py:141-147"],
+    "paths": [
+      "src/puppet_master/lifecycle.py:141-147"
+    ],
     "question": "How does managed_pid make sure the process is the llama-server this bridge started?",
-    "must_mention": ["binary", "model"]
+    "must_mention": [
+      "binary",
+      "model"
+    ]
   },
   {
     "id": "find-cap-protected-keys",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/report.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/report.py"
+    ],
     "question": "Which keys does cap() never remove from a result?",
-    "must_mention": ["error", "patch_id", "patch_path", "passed", "applied"]
+    "must_mention": [
+      "error",
+      "patch_id",
+      "patch_path",
+      "passed",
+      "applied"
+    ]
   },
   {
     "id": "find-est-tokens",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/report.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/report.py"
+    ],
     "question": "How does est_tokens estimate the number of tokens in a string?",
-    "must_mention": ["ceil", "4"]
+    "must_mention": [
+      "ceil",
+      "4"
+    ],
+    "alternatives": {
+      "ceil": [
+        "round up",
+        "rounds up",
+        "rounded up",
+        "rounding up"
+      ]
+    }
   },
   {
     "id": "find-give-up-threshold",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/attempts.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/attempts.py"
+    ],
     "question": "After how many failed attempts does give_up return True?",
-    "must_mention": ["2"]
+    "must_mention": [
+      "2"
+    ]
   },
   {
     "id": "find-budget-headroom",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/budget.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/budget.py"
+    ],
     "question": "How many tokens of headroom does the budget module keep free in the context window?",
-    "must_mention": ["512"]
+    "must_mention": [
+      "512"
+    ]
   },
   {
     "id": "find-failure-limits",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/check.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/check.py"
+    ],
     "question": "What is the maximum number of failure lines extract_failures returns, and the maximum length of each line?",
-    "must_mention": ["20", "200"]
+    "must_mention": [
+      "20",
+      "200"
+    ]
   },
   {
     "id": "find-log-outcomes",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/log.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/log.py"
+    ],
     "question": "Which outcome values does log_call accept?",
-    "must_mention": ["check_failed", "over_budget", "miss"]
+    "must_mention": [
+      "check_failed",
+      "over_budget",
+      "miss"
+    ]
   },
   {
     "id": "find-config-defaults",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/config.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/config.py"
+    ],
     "question": "What are the default values of chunk_tokens, max_chunks and write_max_tokens?",
-    "must_mention": ["10000", "8", "6000"]
+    "must_mention": [
+      "10000",
+      "8",
+      "6000"
+    ]
   },
   {
     "id": "find-samples-cap",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/samples.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/samples.py"
+    ],
     "question": "How large can the samples folder get before files are deleted, and which files are deleted first?",
-    "must_mention": ["200", "oldest"]
+    "must_mention": [
+      "200",
+      "oldest"
+    ]
   },
   {
     "id": "find-decided-outcomes",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/stats.py"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/stats.py"
+    ],
     "question": "Which outcomes count as decided when computing the accept rate?",
-    "must_mention": ["applied", "rejected", "miss", "check_failed"]
+    "must_mention": [
+      "applied",
+      "rejected",
+      "miss",
+      "check_failed"
+    ]
   },
   {
     "id": "find-managed-pid-check",
-    "paths": ["src/puppet_master/*.py"],
-    "baseline_paths": ["src/puppet_master/lifecycle.py:141-147"],
+    "paths": [
+      "src/puppet_master/*.py"
+    ],
+    "baseline_paths": [
+      "src/puppet_master/lifecycle.py:141-147"
+    ],
     "question": "How does managed_pid make sure the process is the llama-server this bridge started?",
-    "must_mention": ["binary", "model"]
+    "must_mention": [
+      "binary",
+      "model"
+    ]
   }
 ]

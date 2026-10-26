@@ -43,7 +43,7 @@ uv sync
 uv run pytest -q
 ```
 
-**Verify:** `uv sync` ends without error and pytest reports `passed` (about 362 passed, 22 skipped
+**Verify:** `uv sync` ends without error and pytest reports `passed` (about 363 passed, 22 skipped
 is normal; the skips are tests that need a free network port). If the user's sandbox blocks uv's
 cache, prefix commands with `UV_CACHE_DIR=.uv-cache`.
 

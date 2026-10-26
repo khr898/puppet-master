@@ -262,3 +262,10 @@ async def test_a_dead_server_is_counted_as_errors_not_wrong_answers():
     respx.post(URL).mock(side_effect=httpx.ConnectError("refused"))
     res = await flint_eval.run_eval(Config(), EVALS, pid_fn=lambda: None)
     assert res["summary"]["run"]["errors"] == 27
+
+
+def test_answer_correct_accepts_a_listed_alternative_for_a_keyword():
+    alts = {"ceil": ["rounding up"]}
+    assert flint_eval.answer_correct("length / 4, rounding up", ["ceil", "4"], alts)
+    assert not flint_eval.answer_correct("length / 4", ["ceil", "4"], alts)
+    assert not flint_eval.answer_correct("rounding up", ["ceil", "4"], alts)
